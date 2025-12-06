@@ -53,12 +53,14 @@ class ShellAgentTUI(App):
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit", priority=True),
         Binding("ctrl+b", "toggle_sidebar", "Sidebar"),
+        Binding("ctrl+backslash", "toggle_context", "Context Panel"),
         Binding("ctrl+p", "fuzzy_find", "Find File"),
         Binding("ctrl+shift+p", "command_palette", "Command Palette"),
     ]
     
     # Global Reactive State
     show_sidebar = reactive(True)
+    show_context = reactive(True)
     
     def __init__(self):
         super().__init__()
@@ -103,11 +105,38 @@ class ShellAgentTUI(App):
     def action_toggle_sidebar(self) -> None:
         """Show/Hide Sidebar"""
         self.show_sidebar = not self.show_sidebar
-        sidebar = self.query_one(FileExplorer)
+        sidebar = self.query_one("#col-files")
+        agent = self.query_one("#col-agent")
+        
         if self.show_sidebar:
             sidebar.remove_class("-hidden")
+            # Restore margins if both panels visible, or just remove left margin if context hidden
+            if self.show_context:
+                agent.styles.margin = (0, 1, 0, 0)
+            else:
+                agent.styles.margin = (0, 0, 0, 0)
         else:
             sidebar.add_class("-hidden")
+            # Remove left spacing, keep or remove right margin based on context visibility
+            if self.show_context:
+                agent.styles.margin = (0, 1, 0, 0)
+            else:
+                agent.styles.margin = (0, 0, 0, 0)
+
+    
+    def action_toggle_context(self) -> None:
+        """Show/Hide Context Panel"""
+        self.show_context = not self.show_context
+        context = self.query_one("#col-context")
+        agent = self.query_one("#col-agent")
+        
+        if self.show_context:
+            context.remove_class("-hidden")
+            agent.styles.margin = (0, 1, 0, 0)  # Restore right margin
+        else:
+            context.add_class("-hidden")
+            agent.styles.margin = (0, 0, 0, 0)  # Remove right margin for expansion
+
 
     def action_fuzzy_find(self) -> None:
         """Open Fuzzy Finder"""
@@ -186,8 +215,6 @@ class ShellAgentTUI(App):
             code_viewer = self.query_one(CodeViewer)
             code_viewer.load_file(path)
             
-            # Switch to Code tab
-            self.query_one(TabbedContent).active = "tab-code"
             logger.info(f"Opened file: {path}")
     
     def on_agent_dashboard_execution_mode_toggled(self, message: "AgentDashboard.ExecutionModeToggled") -> None:
@@ -208,9 +235,30 @@ class ShellAgentTUI(App):
         
         # Log basic node info (Filter out execution details from chat)
         if node_name not in ["execute_command", "summarize"]:
-            log_viewer.add_log(f"[{node_name}]", "agent")
-            if "messages" in node_output and node_output["messages"]:
-                log_viewer.add_log(node_output["messages"][-1].content, "info")
+            # Mark intermediate outputs as thoughts
+            if node_name in ["agent", "tools"]:
+                log_viewer.add_log(f"[{node_name}]", "agent", is_thought=True)
+                if "messages" in node_output and node_output["messages"]:
+                    last_msg = node_output["messages"][-1]
+                    # Handle different message types
+                    if hasattr(last_msg, 'content') and last_msg.content:
+                        # Only show as thought if it contains tool calls
+                        if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
+                            tool_info = f"Using tools: {', '.join([tc['name'] for tc in last_msg.tool_calls])}"
+                            log_viewer.add_log(tool_info, "info", is_thought=True)
+                        elif not hasattr(last_msg, 'tool_calls'):
+                            # This is the final answer
+                            log_viewer.add_log(str(last_msg.content), "info", is_thought=False)
+                    elif isinstance(last_msg, str):
+                        log_viewer.add_log(last_msg, "info", is_thought=False)
+            else:
+                log_viewer.add_log(f"[{node_name}]", "agent")
+                if "messages" in node_output and node_output["messages"]:
+                    last_msg = node_output["messages"][-1]
+                    if hasattr(last_msg, 'content') and last_msg.content:
+                        log_viewer.add_log(str(last_msg.content), "info")
+                    elif isinstance(last_msg, str):
+                        log_viewer.add_log(last_msg, "info")
 
         # Update Execution Plan
         if "execution_plan" in node_output and node_output["execution_plan"] is not None:

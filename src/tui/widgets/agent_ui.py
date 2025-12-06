@@ -13,15 +13,66 @@ from typing import Optional, List
 from src.models import ExecutionResult, ExecutionPlan, RiskLevel, Command
 
 class LogViewer(VerticalScroll):
-    """Scrollable log viewer with text selection support"""
+    """Scrollable log viewer with collapsible thoughts support"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.can_focus = True
+        self.current_thoughts = []
+        self.pending_thoughts_widget = None
     
-    def add_log(self, message: str, level: str = "info") -> None:
+    def add_thought(self, message: str) -> None:
+        """Add a thought/tool call to the current thinking session"""
+        self.current_thoughts.append(message)
+        
+        # Update or create the thoughts collapsible
+        if self.pending_thoughts_widget:
+            # Update existing collapsible
+            self.update_thoughts_widget()
+        else:
+            # Create new collapsible
+            from textual.widgets import Collapsible
+            self.pending_thoughts_widget = Collapsible(
+                Static(""),
+                title=f"💭 Thoughts ({len(self.current_thoughts)} steps)",
+                collapsed=True
+            )
+            self.mount(self.pending_thoughts_widget)
+            self.update_thoughts_widget()
+    
+    def update_thoughts_widget(self):
+        """Update the thoughts collapsible content"""
+        if not self.pending_thoughts_widget:
+            return
+        
+        # Build thoughts content
+        thoughts_text = "\n\n".join([f"**Step {i+1}:** {t}" for i, t in enumerate(self.current_thoughts)])
+        
+        from rich.markdown import Markdown as RichMarkdown
+        md = RichMarkdown(thoughts_text)
+        
+        # Update the collapsible's content
+        self.pending_thoughts_widget.title = f"💭 Thoughts ({len(self.current_thoughts)} steps)"
+        # The Collapsible contains a Static widget, update that
+        if self.pending_thoughts_widget.children:
+            self.pending_thoughts_widget.children[0].update(md)
+    
+    def finalize_thoughts(self):
+        """Mark current thoughts session as complete"""
+        self.current_thoughts = []
+        self.pending_thoughts_widget = None
+    
+    def add_log(self, message: str, level: str = "info", is_thought: bool = False) -> None:
         """Add a log message with styling"""
         from rich.markdown import Markdown as RichMarkdown
+        
+        # If this is a thought/tool output, add to thoughts section
+        if is_thought or message.startswith("["):
+            self.add_thought(message)
+            return
+        
+        # Otherwise, finalize any pending thoughts and show the message normally
+        self.finalize_thoughts()
         
         # Cyberpunk Palette
         ACCENT_CYAN = "#00f3ff"   # Agent
@@ -37,19 +88,19 @@ class LogViewer(VerticalScroll):
         # Special formatting for communication nodes
         if message.startswith("💡"):
             border_style = ACCENT_GOLD
-            title = "[bold gold1]🧠 Understanding[/]"
+            title = "[bold gold1]Understanding[/]"
             content = message.replace("💡 **Understanding Your Request**", "").strip()
         elif message.startswith("📋"):
             border_style = ACCENT_BLUE
-            title = "[bold blue]📋 Execution Plan[/]"
+            title = "[bold blue]Execution Plan[/]"
             content = message.replace("📋 **Execution Plan**", "").strip()
         elif message.startswith("⚡"):
             border_style = ACCENT_GREEN
-            title = "[bold green]⚡ Progress[/]"
+            title = "[bold green]Progress[/]"
             content = message.replace("⚡ **Command Progress**", "").strip()
         elif message.startswith("🔄"):
             border_style = "bold orange1"
-            title = "[bold orange1]🔄 Retry Analysis[/]"
+            title = "[bold orange1]Retry Analysis[/]"
             content = message
         elif level == "info":
             if message.startswith("💬 You:"):
@@ -73,14 +124,16 @@ class LogViewer(VerticalScroll):
             border_style = "bold orange1"
             title = "[bold orange1]Warning[/]"
             content = message
+        elif level == "agent":
+            # Skip agent node names
+            return
         else:
             border_style = "dim"
             content = message
             
         md = RichMarkdown(content)
         
-        # Create Panel and mount as Static widget - this allows expand=True to work!
-        # The Panel will respect container width just like StateIndicator does
+        # Create Panel and mount as Static widget
         panel_widget = Static()
         panel_widget.update(Panel(
             md,
@@ -89,7 +142,7 @@ class LogViewer(VerticalScroll):
             title_align="left" if title == "[bold]Agent[/]" else "right",
             padding=(0, 1),
             style=f"white on {BG_TERTIARY}",
-            expand=True  # Now this will work correctly!
+            expand=True
         ))
         
         self.mount(panel_widget)
@@ -123,7 +176,7 @@ class LiveExecutionPanel(Static):
         content = self.output or "[dim]No active execution[/dim]"
         return Panel(
             content,
-            title="[bold yellow]⚡ Live Output[/bold yellow]",
+            title="[bold yellow]Live Output[/bold yellow]",
             border_style="yellow",
             height=None,
             expand=True # Force fit to container width
@@ -160,35 +213,52 @@ class ExecutionPlanDisplay(Container):
     current_plan: reactive[Optional[ExecutionPlan]] = reactive(None)
     
     def compose(self) -> ComposeResult:
-        yield Tree("📋 Execution Plan", id="plan-tree")
+        yield Tree("Execution Plan", id="plan-tree")
     
     def on_mount(self) -> None:
         self.query_one(Tree).root.add("[dim]No plan generated yet...[/dim]")
 
     def update_plan(self, plan: Optional[ExecutionPlan]) -> None:
         """Update tree when plan changes"""
+        import textwrap
+        
         tree = self.query_one(Tree)
         tree.clear()
         if plan:
-            tree.label = "📋 Execution Plan"
-            # FIX: Truncate strategy if too long
-            short_strat = (plan.overall_strategy[:50] + '...') if len(plan.overall_strategy) > 50 else plan.overall_strategy
-            strategy_node = tree.root.add(f"[bold cyan]Strategy:[/bold cyan] {short_strat}")
+            tree.label = "Execution Plan"
+            
+            # Wrap strategy text to fit width (max 60 chars per line)
+            strategy_lines = textwrap.wrap(plan.overall_strategy, width=60)
+            strategy_text = strategy_lines[0] if strategy_lines else ""
+            if len(strategy_lines) > 1:
+                strategy_text += "..."
+            strategy_node = tree.root.add(f"[bold cyan]Strategy:[/bold cyan] {strategy_text}")
             strategy_node.expand()
             
             commands_node = tree.root.add("[bold yellow]Commands:[/bold yellow]")
             commands_node.expand()
             for i, cmd in enumerate(plan.commands):
-                risk_emoji = {
-                    RiskLevel.SAFE: "✅",
-                    RiskLevel.MODERATE: "⚠️",
-                    RiskLevel.DANGEROUS: "🔴"
-                }.get(cmd.risk_level, "❓")
+                risk_label = {
+                    RiskLevel.SAFE: "[green]SAFE[/green]",
+                    RiskLevel.MODERATE: "[yellow]MODERATE[/yellow]",
+                    RiskLevel.DANGEROUS: "[red]DANGEROUS[/red]"
+                }.get(cmd.risk_level, "[dim]UNKNOWN[/dim]")
                 
-                # FIX: Fold command text
-                cmd_text = Text(f"{risk_emoji} [{i}] {cmd.cmd}", overflow="fold", no_wrap=False)
-                cmd_node = commands_node.add(cmd_text)
-                cmd_node.add(f"[dim]{cmd.description}[/dim]")
+                # Wrap command text to prevent horizontal overflow (max 50 chars)
+                cmd_lines = textwrap.wrap(cmd.cmd, width=50)
+                if cmd_lines:
+                    # First line with risk label
+                    cmd_node = commands_node.add(f"{risk_label} [{i}] {cmd_lines[0]}")
+                    # Additional lines if wrapped
+                    for line in cmd_lines[1:]:
+                        cmd_node.add(f"[dim]    {line}[/dim]")
+                    # Add description with wrapping
+                    desc_lines = textwrap.wrap(cmd.description, width=55)
+                    for desc_line in desc_lines:
+                        cmd_node.add(f"[dim italic]{desc_line}[/dim italic]")
+                else:
+                    cmd_node = commands_node.add(f"{risk_label} [{i}] {cmd.cmd}")
+                    cmd_node.add(f"[dim]{cmd.description}[/dim]")
         else:
             tree.root.add("[dim]No plan generated yet...[/dim]")
 
@@ -201,17 +271,17 @@ class ResultsPanel(Static):
     def update_results(self, results: List[ExecutionResult]) -> None:
         """Update results display"""
         if not results:
-            self.update(Panel("[dim]No results yet[/dim]", title="📊 Execution Results", border_style="dim blue", expand=True))
+            self.update(Panel("[dim]No results yet[/dim]", title="Execution Results", border_style="dim blue", expand=True))
             return
         
-        table = Table(title="📊 Execution Results", border_style="blue", expand=True)
-        table.add_column("Status", style="bold", width=8)
+        table = Table(title="Execution Results", border_style="blue", expand=True)
+        table.add_column("Status", style="bold", width=10)
         # FIX: overflow='fold' allows wrapping within the cell
         table.add_column("Command", overflow="fold", no_wrap=False) 
         table.add_column("Time", justify="right", width=8)
         
         for result in results:
-            status = "[bold green]✅ OK[/]" if result.success else "[bold red]❌ FAIL[/]"
+            status = "[bold green]OK[/]" if result.success else "[bold red]FAIL[/]"
             duration = f"{result.duration_ms:.0f}ms"
             # Command column handles the wrapping now
             table.add_row(status, result.command, duration)
@@ -234,7 +304,7 @@ class AgentDashboard(Container):
             # Header with execution mode toggle
             with Horizontal(id="dashboard-header"):
                 yield StateIndicator(id="agent-state")
-                yield Button("⏩ Sequential", id="mode-toggle", variant="primary")
+                yield Button("Sequential", id="mode-toggle", variant="primary")
             yield LogViewer(id="log-viewer")
             with Container(id="input-container"):
                 yield Input(placeholder="Ask the agent...", id="agent-input")
@@ -245,11 +315,11 @@ class AgentDashboard(Container):
             # Toggle mode
             if self.execution_mode == "sequential":
                 self.execution_mode = "parallel"
-                event.button.label = "⚡ Parallel"
+                event.button.label = "Parallel"
                 event.button.variant = "success"
             else:
                 self.execution_mode = "sequential"
-                event.button.label = "⏩ Sequential"
+                event.button.label = "Sequential"
                 event.button.variant = "primary"
             
             # Post message to app

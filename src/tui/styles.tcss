@@ -42,6 +42,10 @@ Screen {
     /* title styles done in python usually, or via border-title */
 }
 
+#col-files.-hidden {
+    display: none;
+}
+
 /* Column 2: Agent (Center) */
 #col-agent {
     width: 1fr; /* Flex width */
@@ -59,6 +63,10 @@ Screen {
     border: solid $accent-cyan;
     background: $bg-secondary;
     layout: vertical;
+}
+
+#col-context.-hidden {
+    display: none;
 }
 
 
@@ -191,13 +199,79 @@ CodeViewer {
     background: $bg-secondary;
 }
 
-/* Execution Plan (If moved to right col) */
-ExecutionPlanDisplay {
-    height: 50%; /* Check app.py logic for this */
-    border-top: solid $border-dim;
+/* Live Execution Panel */
+LiveExecutionPanel {
+    background: $bg-secondary;
+    border: solid $accent-yellow;
     padding: 1;
+    height: auto;
+    overflow-y: auto;
 }
 
+LiveExecutionPanel {
+    display: none;
+}
+
+LiveExecutionPanel.-visible {
+    display: block;
+}
+
+/* Execution Plan Display */
+ExecutionPlanDisplay {
+    background: $bg-secondary;
+    border: solid $accent-cyan;
+    padding: 1;
+    height: auto;
+    max-height: 30;
+}
+
+#plan-tree {
+    background: $bg-tertiary;
+    color: $text-primary;
+    scrollbar-gutter: stable;
+}
+
+#plan-tree > .tree--cursor {
+    background: $bg-secondary;
+    color: $accent-cyan;
+    text-style: bold;
+}
+
+/* Results Panel */
+ResultsPanel {
+    background: $bg-secondary;
+    border: solid $accent-green;
+    padding: 1;
+    height: auto;
+    max-height: 20;
+}
+
+/* State Indicator */
+StateIndicator {
+    background: $bg-tertiary;
+    padding: 0 1;
+    height: 3;
+}
+
+/* Dashboard Header */
+#dashboard-header {
+    height: auto;
+    dock: top;
+    background: $bg-secondary;
+    padding: 1;
+    layout: horizontal;
+}
+
+#mode-toggle {
+    margin-left: 1;
+    background: $accent-cyan;
+    color: $bg-primary;
+    border: none;
+}
+
+#mode-toggle:hover {
+    background: $accent-purple;
+}
 
 /* Status Bar / Footer */
 StatusBar {

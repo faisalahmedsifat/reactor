@@ -249,3 +249,240 @@ async def analyze_project_structure(directory: str = ".") -> Dict:
         "entry_points": entry_points,
         "has_git": (directory_path / '.git').exists()
     }
+
+
+@tool
+async def search_in_files(pattern: str, directory: str = ".", file_extensions: Optional[List[str]] = None, max_results: int = 50) -> Dict:
+    """
+    Search for a text pattern in files (like grep). Use this to find where something is defined or used.
+    
+    Args:
+        pattern: Text pattern to search for (case-insensitive substring match)
+        directory: Directory to search in (default: current directory)
+        file_extensions: List of file extensions to search (e.g., ['.py', '.js']). If None, searches all text files.
+        max_results: Maximum number of matches to return (default: 50)
+    
+    Returns:
+        Dictionary with matching files, lines, and line numbers
+    """
+    directory_path = Path(directory).resolve()
+    
+    if not directory_path.exists():
+        return {"error": f"Directory not found: {directory}"}
+    
+    ignore_patterns = [
+        '__pycache__', 'node_modules', '.git', '.venv', 'venv',
+        'dist', 'build', '.next', '.pytest_cache', 'coverage',
+        '*.pyc', '.env'
+    ]
+    
+    matches = []
+    files_searched = 0
+    
+    def should_ignore(path: Path) -> bool:
+        for pattern_str in ignore_patterns:
+            if pattern_str.startswith('*'):
+                if str(path).endswith(pattern_str[1:]):
+                    return True
+            else:
+                if pattern_str in path.parts:
+                    return True
+        return False
+    
+    def search_file(file_path: Path):
+        nonlocal files_searched
+        
+        # Check extension filter
+        if file_extensions and file_path.suffix not in file_extensions:
+            return
+        
+        # Skip binary files and very large files
+        try:
+            file_size = file_path.stat().st_size
+            if file_size > 500_000:  # Skip files > 500KB
+                return
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                files_searched += 1
+                for line_num, line in enumerate(f, 1):
+                    if pattern.lower() in line.lower():
+                        matches.append({
+                            "file": str(file_path.relative_to(directory_path)),
+                            "line_number": line_num,
+                            "line_content": line.rstrip(),
+                            "match": pattern
+                        })
+                        
+                        if len(matches) >= max_results:
+                            return True  # Stop searching
+        except (UnicodeDecodeError, PermissionError):
+            pass  # Skip binary files or files we can't read
+        
+        return False
+    
+    # Walk directory and search files
+    def walk_and_search(path: Path, depth: int = 0):
+        if depth > 5 or len(matches) >= max_results:  # Max depth 5
+            return
+        
+        try:
+            for item in path.iterdir():
+                if should_ignore(item):
+                    continue
+                
+                if item.is_file():
+                    if search_file(item):
+                        return  # Stop if max results reached
+                elif item.is_dir():
+                    walk_and_search(item, depth + 1)
+        except PermissionError:
+            pass
+    
+    walk_and_search(directory_path)
+    
+    return {
+        "pattern": pattern,
+        "directory": str(directory_path),
+        "files_searched": files_searched,
+        "matches_found": len(matches),
+        "matches": matches,
+        "truncated": len(matches) >= max_results
+    }
+
+
+@tool
+async def write_file(file_path: str, content: str, mode: str = "write") -> Dict:
+    """
+    Write content to a file. Creates the file and parent directories if they don't exist.
+    
+    Args:
+        file_path: Path to file (relative or absolute)
+        content: Content to write to the file
+        mode: Write mode - "write" (overwrite), "append", or "create" (fail if exists)
+    
+    Returns:
+        Dictionary with operation status and file info
+    """
+    try:
+        path = Path(file_path).resolve()
+        
+        # Check if file exists
+        file_exists = path.exists()
+        
+        # Handle different modes
+        if mode == "create" and file_exists:
+            return {
+                "error": f"File already exists: {file_path}",
+                "file_path": str(path),
+                "exists": True
+            }
+        
+        # Create parent directories if needed
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Determine write mode
+        if mode == "append":
+            write_mode = 'a'
+            operation = "appended"
+        else:  # mode == "write" or "create"
+            write_mode = 'w'
+            operation = "created" if not file_exists else "overwritten"
+        
+        # Write the file
+        with open(path, write_mode, encoding='utf-8') as f:
+            f.write(content)
+        
+        # Get file stats
+        file_size = path.stat().st_size
+        lines_written = content.count('\n') + 1
+        
+        return {
+            "success": True,
+            "file_path": str(path),
+            "operation": operation,
+            "size_bytes": file_size,
+            "lines_written": lines_written,
+            "mode": mode
+        }
+        
+    except PermissionError:
+        return {
+            "error": f"Permission denied: {file_path}",
+            "file_path": file_path
+        }
+    except Exception as e:
+        return {
+            "error": f"Error writing file: {str(e)}",
+            "file_path": file_path
+        }
+
+
+@tool
+async def modify_file(file_path: str, search_text: str, replace_text: str, occurrence: str = "all") -> Dict:
+    """
+    Modify a file by searching and replacing text. Useful for targeted edits.
+    
+    Args:
+        file_path: Path to file (relative or absolute)
+        search_text: Text to search for
+        replace_text: Text to replace with
+        occurrence: "first", "last", or "all" (default: "all")
+    
+    Returns:
+        Dictionary with operation status and changes made
+    """
+    try:
+        path = Path(file_path).resolve()
+        
+        if not path.exists():
+            return {"error": f"File not found: {file_path}"}
+        
+        if not path.is_file():
+            return {"error": f"Not a file: {file_path}"}
+        
+        # Read file
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Count occurrences
+        occurrences_found = content.count(search_text)
+        
+        if occurrences_found == 0:
+            return {
+                "success": False,
+                "file_path": str(path),
+                "error": f"Search text not found in file",
+                "occurrences_found": 0
+            }
+        
+        # Perform replacement
+        if occurrence == "first":
+            new_content = content.replace(search_text, replace_text, 1)
+            replacements = 1
+        elif occurrence == "last":
+            # Replace last occurrence
+            parts = content.rsplit(search_text, 1)
+            new_content = replace_text.join(parts)
+            replacements = 1
+        else:  # "all"
+            new_content = content.replace(search_text, replace_text)
+            replacements = occurrences_found
+        
+        # Write back
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        return {
+            "success": True,
+            "file_path": str(path),
+            "occurrences_found": occurrences_found,
+            "replacements_made": replacements,
+            "operation": f"replaced {replacements} occurrence(s)"
+        }
+        
+    except Exception as e:
+        return {
+            "error": f"Error modifying file: {str(e)}",
+            "file_path": file_path
+        }
+

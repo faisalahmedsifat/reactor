@@ -5,7 +5,7 @@ Bridge between Textual TUI and LangGraph Agent
 import asyncio
 import logging
 from typing import Optional, Callable, Any
-from src.graph import create_complete_shell_agent
+from src.graph_simple import create_simple_shell_agent
 from langchain_core.messages import HumanMessage
 from src.state import ShellAgentState
 
@@ -23,7 +23,7 @@ class AgentBridge:
         """Initialize bridge with reference to TUI app"""
         logger.info("AgentBridge initializing")
         self.tui_app = tui_app
-        self.graph = create_complete_shell_agent()
+        self.graph = create_simple_shell_agent()
         self.thread_id = "tui-session"
         self.running = False
         logger.info("AgentBridge initialized")

@@ -22,7 +22,7 @@ class FuzzyFinder(ModalScreen):
     
     def compose(self) -> ComposeResult:
         with Container(id="fuzzy-container"):
-            yield Label("🔍 Search Files", id="fuzzy-title")
+            yield Label("Search Files", id="fuzzy-title")
             yield Input(placeholder="Type to search...", id="fuzzy-input")
             yield ListView(id="fuzzy-list")
 
@@ -71,15 +71,16 @@ class CommandPalette(ModalScreen):
             super().__init__()
             
     COMMANDS = {
-        "Toggle Sidebar": "toggle_sidebar",
+        "Toggle File Sidebar": "toggle_sidebar",
+        "Toggle Context Panel": "toggle_context",
         "Find File": "fuzzy_find",
+        "Clear Logs": "clear_logs",
         "Quit": "quit",
-        "Clear Logs": "clear_logs" # We need to implement generic action handling for this
     }
     
     def compose(self) -> ComposeResult:
         with Container(id="fuzzy-container"):
-            yield Label("🚀 Command Palette", id="fuzzy-title")
+            yield Label("Command Palette", id="fuzzy-title")
             yield Input(placeholder="> Type a command...", id="cmd-input")
             yield ListView(id="cmd-list")
 
