@@ -130,7 +130,6 @@ class ShellAgentTUI(App):
             code_viewer.load_file(path)
             
             # Switch to Code tab
-            self.query_one(TabbedContent).active = "tab-code"
             logger.info(f"Opened file via fuzzy finder: {path}")
 
     def on_command_palette_selected(self, event: CommandPalette.Selected) -> None:

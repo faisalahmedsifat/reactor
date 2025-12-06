@@ -100,10 +100,10 @@ DirectoryTree > .tree--cursor {
 /* Agent Log / Chat */
 LogViewer {
     height: 1fr;
+    width: 100%;
     background: $bg-secondary;
-    padding: 1;
-    scrollbar-gutter: stable;
     overflow-y: auto;
+    overflow-x: hidden; /* Force text wrap, no horizontal scroll */
 }
 
 /* Chat Bubbles */

@@ -266,29 +266,29 @@ async def llm_reflection_node(state: ShellAgentState) -> ShellAgentState:
     results = state["results"]
     plan = state["execution_plan"]
     
-    system_prompt = """Review command execution results and provide insights.
+    system_prompt = """Review command execution results and provide a Final Response to the user.
     
-    Analyze:
-    - What worked well
-    - What failed and why
-    - Lessons learned
-    - Better approaches for next time
+    CRITICAL: Your primary goal is to ANSWER the user's original request based on the command outputs.
     
-    Be concise and actionable."""
+    Structure your response as follows:
+    
+    ## 📝 Answer
+    [Direct, comprehensive answer to the user's question. Focus on the results found.]
+    
+    ## 💭 Expert Critique & Improvements
+    [Critically analyze the process. Identify inefficiencies, missing checks, or better "Power-User" approaches. Suggest concrete architectural or command improvements. Be technical and harsh if necessary to improve quality.]"""
 
     execution_summary = "\n".join([
-        f"{'✓' if r.success else '✗'} {r.command}: {r.stdout[:100] if r.success else r.stderr[:100]}"
+        f"{'✓' if r.success else '✗'} {r.command}: {r.stdout[:500] if r.success else r.stderr[:500]}"
         for r in results
     ])
     
-    user_prompt = f"""Original Goal: {plan.overall_strategy}
+    user_prompt = f"""Original Request: {plan.overall_strategy}
 
-Execution Results:
+Execution Output:
 {execution_summary}
 
-Success Rate: {sum(r.success for r in results)}/{len(results)}
-
-Provide reflection:"""
+Provide the final answer and reflection:"""
 
     messages = [
         SystemMessage(content=system_prompt),
