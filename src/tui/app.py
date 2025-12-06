@@ -84,6 +84,8 @@ class ShellAgentTUI(App):
             with Vertical(id="col-context"):
                 yield Static("CONTEXT / DRAFT", classes="panel-header")
                 yield CodeViewer(id="code-viewer")
+                yield Static("LIVE OUTPUT", classes="panel-header")
+                yield LiveExecutionPanel(id="live-execution")
                 yield Static("EXECUTION PLAN", classes="panel-header")
                 yield ExecutionPlanDisplay(id="plan-display")
                 yield ResultsPanel(id="results-panel")
@@ -159,7 +161,7 @@ class ShellAgentTUI(App):
             self.query_one(ResultsPanel).update_results([])
             
             # Prepare Live Execution Panel
-            live_panel = dashboard.query_one(LiveExecutionPanel)
+            live_panel = self.query_one(LiveExecutionPanel)
             live_panel.clear()
             live_panel.add_class("-visible")
 
@@ -194,10 +196,11 @@ class ShellAgentTUI(App):
         dashboard = self.query_one(AgentDashboard)
         log_viewer = dashboard.query_one("#log-viewer")
         
-        # Log basic node info
-        log_viewer.add_log(f"[{node_name}]", "agent")
-        if "messages" in node_output and node_output["messages"]:
-            log_viewer.add_log(node_output["messages"][-1].content, "info")
+        # Log basic node info (Filter out execution details from chat)
+        if node_name not in ["execute_command", "summarize"]:
+            log_viewer.add_log(f"[{node_name}]", "agent")
+            if "messages" in node_output and node_output["messages"]:
+                log_viewer.add_log(node_output["messages"][-1].content, "info")
 
         # Update Execution Plan
         if "execution_plan" in node_output and node_output["execution_plan"] is not None:
@@ -209,7 +212,7 @@ class ShellAgentTUI(App):
             last_result: ExecutionResult = node_output["results"][-1]
             
             # Update live panel with latest result
-            dashboard.query_one(LiveExecutionPanel).set_content(last_result)
+            self.query_one(LiveExecutionPanel).set_content(last_result)
             dashboard.query_one(StateIndicator).state = "executing"
             
             # Update cumulative results panel
@@ -221,14 +224,14 @@ class ShellAgentTUI(App):
         self.query_one(StatusBar).agent_state = "complete"
         dashboard = self.query_one(AgentDashboard)
         dashboard.query_one(StateIndicator).state = "complete"
-        dashboard.query_one(LiveExecutionPanel).remove_class("-visible")
+        self.query_one(LiveExecutionPanel).remove_class("-visible")
 
     async def on_agent_error(self, error: str) -> None:
         self.query_one(StatusBar).agent_state = "error"
         dashboard = self.query_one(AgentDashboard)
         dashboard.query_one(StateIndicator).state = "error"
         dashboard.query_one("#log-viewer").add_log(f"Error: {error}", "error")
-        dashboard.query_one(LiveExecutionPanel).remove_class("-visible")
+        self.query_one(LiveExecutionPanel).remove_class("-visible")
 
 def run_tui():
     app = ShellAgentTUI()

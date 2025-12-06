@@ -174,6 +174,5 @@ class AgentDashboard(Container):
         with Vertical(id="dashboard-container"):
             yield StateIndicator(id="agent-state")
             yield LogViewer(id="log-viewer")
-            yield LiveExecutionPanel(id="live-execution")
             with Container(id="input-container"):
                 yield Input(placeholder="Ask the agent...", id="agent-input")

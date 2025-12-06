@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from src.state import ShellAgentState
 from src.models import CommandIntent, ExecutionPlan, Command, RiskLevel
+from src.utils import extract_json_from_text
 import json
 import os
 
@@ -38,21 +39,21 @@ async def llm_parse_intent_node(state: ShellAgentState) -> ShellAgentState:
     
     system_prompt = """You are an expert shell command interpreter.
     
-Analyze user requests to understand their goals. Extract:
-- Core task description
-- Operation category
-- Relevant entities (files, packages, directories)
-- Constraints or safety requirements
-- Your confidence level (0-1)
-
-Output ONLY valid JSON matching this schema:
-{
-  "task_description": "clear description of what user wants",
-  "category": "file_operation|environment_setup|package_management|git_operation|system_info|process_management|network_operation|other",
-  "key_entities": ["list", "of", "relevant", "items"],
-  "constraints": ["any", "safety", "or", "requirement", "constraints"],
-  "user_intent_confidence": 0.9
-}"""
+    Analyze user requests to understand their goals. Extract:
+    - Core task description
+    - Operation category
+    - Relevant entities (files, packages, directories)
+    - Constraints or safety requirements
+    - Your confidence level (0-1)
+    
+    Output ONLY valid JSON matching this schema:
+    {
+      "task_description": "clear description of what user wants",
+      "category": "file_operation|environment_setup|package_management|git_operation|system_info|process_management|network_operation|other",
+      "key_entities": ["list", "of", "relevant", "items"],
+      "constraints": ["any", "safety", "or", "requirement", "constraints"],
+      "user_intent_confidence": 0.9
+    }"""
 
     user_prompt = f"""Request: "{user_input}"
 
@@ -71,15 +72,9 @@ Analyze and output JSON:"""
     # Invoke LLM
     response = await llm_client.ainvoke(messages)
     
-    # Parse JSON from response with error handling
+    # Parse JSON from response with robust utility
     try:
-        json_str = response.content
-        if "```json" in json_str:
-            json_str = json_str.split("```json")[1].split("```")[0]
-        elif "```" in json_str:
-            json_str = json_str.split("```")[1].split("```")[0]
-        
-        intent_data = json.loads(json_str.strip())
+        intent_data = extract_json_from_text(response.content)
         
         # Validate with Pydantic
         state["intent"] = CommandIntent(**intent_data)
@@ -112,29 +107,29 @@ async def llm_generate_plan_node(state: ShellAgentState) -> ShellAgentState:
     
     system_prompt = """You are an expert systems administrator.
 
-Generate safe, efficient shell commands. Rules:
-1. NEVER risk data loss without confirmation
-2. Check tool/file existence first
-3. Prefer non-destructive operations
-4. Backup before modifying critical files
-5. Explain every command clearly
-
-Output ONLY valid JSON matching this schema:
-{
-  "commands": [
+    Generate safe, efficient shell commands. Rules:
+    1. NEVER risk data loss without confirmation
+    2. Check tool/file existence first
+    3. Prefer non-destructive operations
+    4. Backup before modifying critical files
+    5. Explain every command clearly
+    
+    Output ONLY valid JSON matching this schema:
     {
-      "cmd": "actual shell command",
-      "description": "what this does",
-      "reasoning": "why this approach",
-      "risk_level": "safe|moderate|dangerous",
-      "reversible": true,
-      "dependencies": [0, 1]
-    }
-  ],
-  "overall_strategy": "high-level approach",
-  "potential_issues": ["possible", "problems"],
-  "estimated_duration_seconds": 10
-}"""
+      "commands": [
+        {
+          "cmd": "actual shell command",
+          "description": "what this does",
+          "reasoning": "why this approach",
+          "risk_level": "safe|moderate|dangerous",
+          "reversible": true,
+          "dependencies": [0, 1]
+        }
+      ],
+      "overall_strategy": "high-level approach",
+      "potential_issues": ["possible", "problems"],
+      "estimated_duration_seconds": 10
+    }"""
 
     user_prompt = f"""Task: {intent.task_description}
 Category: {intent.category}
@@ -156,15 +151,9 @@ Generate execution plan as JSON:"""
     # Invoke LLM
     response = await llm_client.ainvoke(messages)
     
-    # Parse JSON with error handling
+    # Parse JSON with error handling using robust utility
     try:
-        json_str = response.content
-        if "```json" in json_str:
-            json_str = json_str.split("```json")[1].split("```")[0]
-        elif "```" in json_str:
-            json_str = json_str.split("```")[1].split("```")[0]
-        
-        plan_data = json.loads(json_str.strip())
+        plan_data = extract_json_from_text(response.content)
         
         # Validate with Pydantic
         state["execution_plan"] = ExecutionPlan(**plan_data)
@@ -207,18 +196,18 @@ async def llm_analyze_error_node(state: ShellAgentState) -> ShellAgentState:
     
     system_prompt = """You are an expert debugger.
 
-Analyze command failures and provide:
-- Root cause analysis
-- Suggested fix (new command or approach)
-- Whether to retry automatically
-
-Output ONLY valid JSON:
-{
-  "root_cause": "detailed explanation",
-  "suggested_fix": "corrected command or approach",
-  "should_retry": true,
-  "modified_command": "fixed command string"
-}"""
+    Analyze command failures and provide:
+    - Root cause analysis
+    - Suggested fix (new command or approach)
+    - Whether to retry automatically
+    
+    Output ONLY valid JSON:
+    {
+      "root_cause": "detailed explanation",
+      "suggested_fix": "corrected command or approach",
+      "should_retry": true,
+      "modified_command": "fixed command string"
+    }"""
 
     user_prompt = f"""Task: {plan.overall_strategy}
 Failed Command: {current_cmd.cmd}
@@ -238,15 +227,9 @@ Analyze and suggest fix as JSON:"""
     
     response = await llm_client.ainvoke(messages)
     
-    # Parse JSON with robust error handling
+    # Parse JSON with robust error handling using utility
     try:
-        json_str = response.content
-        if "```json" in json_str:
-            json_str = json_str.split("```json")[1].split("```")[0]
-        elif "```" in json_str:
-            json_str = json_str.split("```")[1].split("```")[0]
-        
-        analysis = json.loads(json_str.strip())
+        analysis = extract_json_from_text(response.content)
         
         state["messages"].append(
             AIMessage(content=f"""🔍 Error Analysis:
@@ -285,13 +268,13 @@ async def llm_reflection_node(state: ShellAgentState) -> ShellAgentState:
     
     system_prompt = """Review command execution results and provide insights.
     
-Analyze:
-- What worked well
-- What failed and why
-- Lessons learned
-- Better approaches for next time
-
-Be concise and actionable."""
+    Analyze:
+    - What worked well
+    - What failed and why
+    - Lessons learned
+    - Better approaches for next time
+    
+    Be concise and actionable."""
 
     execution_summary = "\n".join([
         f"{'✓' if r.success else '✗'} {r.command}: {r.stdout[:100] if r.success else r.stderr[:100]}"
