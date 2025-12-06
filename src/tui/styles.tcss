@@ -1,115 +1,191 @@
-/* Chat-style TUI for Shell Agent */
+/* Cyberpunk Neon Theme - 3 Column Layout */
 
-/* Global */
+/* Color Palette Definition */
+$bg-primary: #050510;       /* Deepest Blue/Black */
+$bg-secondary: #0a0a1a;     /* Slightly lighter panel bg */
+$bg-tertiary: #11112b;      /* Widgets bg */
+
+$border-dim: #1a1a3a;
+$border-glow: #00f3ff;      /* Cyan Glow */
+
+$accent-cyan: #00f3ff;      /* Main Accent */
+$accent-purple: #bc13fe;    /* Secondary Accent */
+$accent-pink: #ff0055;      /* Alert/Highlight */
+$accent-green: #00ff9d;     /* Success */
+$accent-yellow: #fcee0a;    /* Warning */
+
+$text-primary: #e0e0ff;
+$text-secondary: #8a8ab5;
+$text-dim: #444466;
+
+/* Global Styles */
 Screen {
-    background: $surface;
+    background: $bg-primary;
+    color: $text-primary;
 }
 
-/* Main Layout - Chat interface */
-#main-container {
+/* Main Layout: 3 Columns */
+#main-layout {
+    layout: horizontal;
+    width: 100%;
     height: 100%;
+    padding: 1;
+}
+
+/* Column 1: Files (Left) */
+#col-files {
+    width: 30;
+    height: 100%;
+    margin-right: 1;
+    border: solid $accent-cyan;
+    background: $bg-secondary;
+    /* title styles done in python usually, or via border-title */
+}
+
+/* Column 2: Agent (Center) */
+#col-agent {
+    width: 1fr; /* Flex width */
+    height: 100%;
+    margin-right: 1;
+    border: solid $accent-purple;
+    background: $bg-secondary;
     layout: vertical;
 }
 
-/* Chat Area - Takes most of the space */
-#chat-area {
-    height: 1fr;
-    background: $surface-darken-1;
-    border: solid $primary;
-    margin: 1 2 0 2;
-}
-
-/* Log Viewer - Clean chat display */
-LogViewer {
-    width: 100%;
+/* Column 3: Context/Code (Right) */
+#col-context {
+    width: 1fr; /* Flex width or fixed if preferred, image implies simpler structure */
     height: 100%;
-    padding: 1 2;
-    background: transparent;
-    border: none;
+    border: solid $accent-cyan;
+    background: $bg-secondary;
+    layout: vertical;
 }
 
-LogViewer:focus {
-    border: none;
+
+/* Common Headers within Columns */
+.panel-header {
+    dock: top;
+    height: 1;
+    background: $bg-secondary;
+    color: $accent-cyan;
+    content-align: center middle;
+    text-style: bold;
 }
 
-/* Input Container - Sticky bottom */
+.panel-header-purple {
+    color: $accent-purple;
+}
+
+/* --- Widgets --- */
+
+/* File Explorer */
+FileExplorer {
+    background: $bg-secondary;
+    border: none;
+    padding: 0 1;
+    scrollbar-gutter: stable;
+}
+
+DirectoryTree {
+    background: $bg-secondary;
+    color: $text-primary;
+}
+
+DirectoryTree > .tree--cursor {
+    background: $bg-tertiary;
+    color: $accent-cyan;
+    text-style: bold;
+}
+
+/* Agent Log / Chat */
+LogViewer {
+    height: 1fr;
+    background: $bg-secondary;
+    padding: 1;
+    scrollbar-gutter: stable;
+    overflow-y: auto;
+}
+
+/* Chat Bubbles */
+.message-user {
+    background: $bg-tertiary;
+    border: none;
+    border-right: solid $accent-purple;
+    padding: 1;
+    margin: 1 1 1 4;
+    color: $text-primary;
+}
+
+.message-agent {
+    background: $bg-tertiary;
+    border: none;
+    border-left: solid $accent-cyan;
+    padding: 1;
+    margin: 1 4 1 1;
+    color: $text-primary;
+}
+
+.message-system {
+    color: $text-secondary;
+    text-style: italic;
+    content-align: center middle;
+    padding: 1;
+}
+
+/* Agent Input */
 #input-container {
     height: auto;
-    margin: 1 2;
+    dock: bottom;
+    background: $bg-secondary;
     padding: 1;
-    background: $panel;
-    border: solid $accent;
+    border-top: solid $border-dim;
 }
 
-#command-input {
-    width: 100%;
-    border: none;
-    background: transparent;
+#agent-input {
+    background: $bg-tertiary;
+    border: solid $border-dim;
+    color: $accent-cyan;
+    padding: 0 1;
 }
 
-#command-input:focus {
-    border: none;
+#agent-input:focus {
+    border: solid $accent-cyan;
 }
 
-/* Status Bar */
+
+/* Context / Code Viewer */
+CodeViewer {
+    background: $bg-secondary;
+    padding: 0;
+}
+
+#code-header {
+    background: $bg-tertiary;
+    color: $text-secondary;
+    padding: 0 1;
+    height: 1;
+    dock: top;
+}
+
+#code-content {
+    padding: 1;
+    background: $bg-secondary;
+}
+
+/* Execution Plan (If moved to right col) */
+ExecutionPlanDisplay {
+    height: 50%; /* Check app.py logic for this */
+    border-top: solid $border-dim;
+    padding: 1;
+}
+
+
+/* Status Bar / Footer */
 StatusBar {
     dock: bottom;
     height: 1;
-    background: $accent-darken-2;
-    color: $text;
-    padding: 0 2;
-}
-
-/* Approval Dialog */
-ApprovalDialog {
-    align: center middle;
-    layer: overlay;
-}
-
-#approval-dialog {
-    width: 80;
-    max-width: 100;
-    height: auto;
-    background: $panel;
-    border: thick $warning;
-    padding: 2;
-}
-
-#dialog-title {
-    text-align: center;
-    margin-bottom: 1;
-}
-
-#command-display {
-    margin: 1 0;
-}
-
-#warnings-display {
-    margin: 1 0;
-}
-
-#dialog-buttons {
-    width: 100%;
-    height: auto;
-    align: center middle;
-    margin-top: 1;
-}
-
-#dialog-buttons Button {
-    margin: 0 1;
-    min-width: 16;
-}
-
-Button:hover {
-    background: $accent;
-}
-
-/* Dialog Animation */
-ApprovalDialog {
-    opacity: 0.0;
-}
-
-ApprovalDialog.-show {
-    opacity: 1.0;
-    transition: opacity 300ms;
+    background: $bg-tertiary;
+    color: $accent-cyan;
+    content-align: left middle;
+    padding: 0 1;
 }

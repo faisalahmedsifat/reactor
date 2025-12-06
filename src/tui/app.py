@@ -1,359 +1,238 @@
 """
-Main TUI Application for Reactive Shell Agent
+Powerhouse TUI Application for Reactive Shell Agent
 """
-
-import os
-import asyncio
 import logging
-from datetime import datetime
+from typing import List
 from textual.app import App, ComposeResult
-from textual.containers import Container, Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Header, Footer, Input, Button
+from textual.containers import Container, Vertical
+from textual.widgets import Header, Input, Static
 from textual.binding import Binding
 from textual.reactive import reactive
-from typing import Optional
+from pathlib import Path
 
+from src.tui.state import TUIState, AgentState
 from src.tui.widgets import (
-    SystemInfoPanel,
-    CommandInputPanel,
+    FileExplorer, 
+    CodeViewer, 
+    AgentDashboard,
+    FuzzyFinder,
+    CommandPalette
+)
+from src.tui.widgets.agent_ui import (
+    StateIndicator, 
+    LiveExecutionPanel, 
     ExecutionPlanDisplay,
-    LogViewer,
-    ApprovalDialog,
-    StatusBar,
     ResultsPanel
 )
 from src.tui.bridge import AgentBridge
-from src.state import ShellAgentState
+from src.models import ExecutionResult, ExecutionPlan
 
-# Setup file logging - ONLY to file, not console (so it doesn't cover TUI)
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler('debug.log', mode='w')
-    ]
-)
+# Reuse the StatusBar from the old widgets if possible, or redefine it here/in widgets
+# I'll quickly redefine a compatible StatusBar for the footer
+from textual.widgets import Static
+class StatusBar(Static):
+    """Bottom status bar"""
+    agent_state = reactive("idle")
+    status = reactive("Ready")
+    
+    def render(self):
+        return f" {self.status} | State: {self.agent_state} "
+
+# Setup logging
+logging.basicConfig(level=logging.DEBUG, filename='debug_tui.log', filemode='w')
 logger = logging.getLogger(__name__)
-logger.info("="*80)
-logger.info("TUI Application Starting")
-logger.info("="*80)
-
 
 class ShellAgentTUI(App):
-    """Beautiful TUI for Reactive Shell Agent"""
+    """Powerhouse TUI for Reactive Shell Agent"""
     
     CSS_PATH = "styles.tcss"
-    TITLE = "🤖 Reactive Shell Agent"
+    TITLE = "🤖 Reactive Shell Agent IDE"
     
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit", priority=True),
-        Binding("ctrl+l", "clear_logs", "Clear Logs"),
-        Binding("ctrl+r", "reset", "Reset"),
+        Binding("ctrl+b", "toggle_sidebar", "Sidebar"),
+        Binding("ctrl+p", "fuzzy_find", "Find File"),
+        Binding("ctrl+shift+p", "command_palette", "Command Palette"),
     ]
     
-    # Reactive state
-    show_approval_dialog: reactive[bool] = reactive(False)
-    agent_state: reactive[str] = reactive("idle")
+    # Global Reactive State
+    show_sidebar = reactive(True)
     
     def __init__(self):
         super().__init__()
         self.bridge = AgentBridge(self)
-        self.approval_callback: Optional[asyncio.Future] = None
+        self.state = TUIState()
+        self.execution_results: List[ExecutionResult] = []
         
     def compose(self) -> ComposeResult:
-        """Create child widgets"""
+        """Create the Cyberpunk IDE layout"""
         yield Header()
         
-        with Container(id="main-container"):
-            # Chat area - logs take up most of the space
-            with ScrollableContainer(id="chat-area"):
-                yield LogViewer(id="log-viewer")
+        # Main Gradient/Neon Layout
+        with Container(id="main-layout"):
+            # Col 1: Files
+            with Vertical(id="col-files"):
+                yield Static("SESSION HISTORY", classes="panel-header")
+                yield FileExplorer("./", id="file-explorer")
             
-            # Input area - sticky at bottom
-            with Container(id="input-container"):
-                yield Input(
-                    placeholder="Enter your command or request...",
-                    id="command-input"
-                )
-            
-            # Approval dialog (hidden by default, overlays chat)
-            yield ApprovalDialog(id="approval-dialog")
-        
-        yield StatusBar()
-        yield Footer()
-    
-    def on_mount(self) -> None:
-        """Called when app starts"""
-        logger.info("on_mount called - App is mounting")
-        
-        # Hide approval dialog initially
-        approval_dialog = self.query_one("#approval-dialog", ApprovalDialog)
-        approval_dialog.display = False
-        logger.info("Approval dialog hidden")
-        
-        # Focus the input
-        input_widget = self.query_one("#command-input", Input)
-        input_widget.focus()
-        logger.info(f"Focused input widget: {input_widget.id}")
-        
-        # Welcome message
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        log_viewer.add_log("🤖 Reactive Shell Agent", "agent")
-        log_viewer.add_log("", "info")
-        log_viewer.add_log("I can help you execute shell commands safely.", "info")
-        log_viewer.add_log("Just type what you need and I'll analyze, plan, and execute it.", "info")
-        log_viewer.add_log("", "info")
-        log_viewer.add_log("─" * 60, "info")
-        log_viewer.add_log("", "info")
-        logger.info("Welcome messages added to log viewer")
-        logger.info("on_mount complete - App ready for input")
-    
+            # Col 2: Agent
+            with Vertical(id="col-agent"):
+                yield Static("CYBERPUNK AGENT", classes="panel-header panel-header-purple")
+                yield AgentDashboard(id="agent-dashboard")
 
+            # Col 3: Context
+            with Vertical(id="col-context"):
+                yield Static("CONTEXT / DRAFT", classes="panel-header")
+                yield CodeViewer(id="code-viewer")
+                yield Static("EXECUTION PLAN", classes="panel-header")
+                yield ExecutionPlanDisplay(id="plan-display")
+                yield ResultsPanel(id="results-panel")
+        
+        # Footer
+        yield StatusBar(id="status-bar")
+
+    def on_mount(self) -> None:
+        """Initialize"""
+        logger.info("TUI Mounted")
+        self.query_one(AgentDashboard).query_one("#log-viewer").add_log("Welcome to the Powerhouse TUI!", "info")
+
+    def action_toggle_sidebar(self) -> None:
+        """Show/Hide Sidebar"""
+        self.show_sidebar = not self.show_sidebar
+        sidebar = self.query_one(FileExplorer)
+        if self.show_sidebar:
+            sidebar.remove_class("-hidden")
+        else:
+            sidebar.add_class("-hidden")
+
+    def action_fuzzy_find(self) -> None:
+        """Open Fuzzy Finder"""
+        self.push_screen(FuzzyFinder())
+
+    def action_command_palette(self) -> None:
+        """Open Command Palette"""
+        self.push_screen(CommandPalette())
+
+    def action_clear_logs(self) -> None:
+        """Clear the agent log viewer"""
+        log_viewer = self.query_one(AgentDashboard).query_one("#log-viewer")
+        log_viewer.clear()
+        log_viewer.add_log("Logs cleared.", "info")
+
+    def on_fuzzy_finder_selected(self, event: FuzzyFinder.Selected) -> None:
+        """Handle file selection from fuzzy finder"""
+        path = event.path
+        if path.is_file():
+            # Load file in CodeViewer
+            code_viewer = self.query_one(CodeViewer)
+            code_viewer.load_file(path)
+            
+            # Switch to Code tab
+            self.query_one(TabbedContent).active = "tab-code"
+            logger.info(f"Opened file via fuzzy finder: {path}")
+
+    def on_command_palette_selected(self, event: CommandPalette.Selected) -> None:
+        """Handle command selection from command palette"""
+        action_name = f"action_{event.action}"
+        if hasattr(self, action_name):
+            getattr(self, action_name)()
+        elif event.action == 'quit':
+            self.exit()
+        else:
+            logger.warning(f"Unknown command palette action: {event.action}")
+
+    # --- Agent Bridge Handlers ---
     
     async def on_input_submitted(self, event: Input.Submitted) -> None:
-        """Handle command submission"""
-        logger.info(f"on_input_submitted CALLED! Value='{event.value}', ID={event.input.id}")
-        
-        # Only handle our command input
-        if event.input.id != "command-input":
-            logger.info(f"Ignoring input from {event.input.id}")
-            return
-        
-        logger.info("This is our command input!")
-        
-        command = event.value.strip()
-        logger.info(f"Stripped command: '{command}'")
-        
-        if not command:
-            logger.warning("Empty command, returning")
-            return
-        
-        # Get log viewer
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        
-        # Clear input
-        event.input.value = ""
-        logger.info("Cleared input field")
-        
-        # Add user message to chat
-        log_viewer.add_log("", "info")
-        log_viewer.add_log(f"💬 You: {command}", "info")
-        log_viewer.add_log("", "info")
-        logger.info("Added user request to log viewer")
-        
-        # Update status
-        self.agent_state = "thinking"
-        status_bar = self.query_one(StatusBar)
-        status_bar.agent_state = "thinking"
-        status_bar.status = "Processing..."
-        logger.info("Updated status bar to 'thinking'")
-        
-        logger.info("About to call run_worker...")
-        
-        try:
-            # Process through agent in background task
-            worker = self.run_worker(self.bridge.process_request(command), exclusive=True)
-            logger.info(f"run_worker returned: {worker}")
-            logger.info("Worker started successfully!")
-        except Exception as e:
-            logger.error(f"Error starting worker: {e}", exc_info=True)
-            log_viewer.add_log(f"❌ Error: {e}", "error")
+        """Handle input from AgentDashboard"""
+        if event.input.id == "agent-input":
+            command = event.value.strip()
+            if not command:
+                return
+                
+            dashboard = self.query_one(AgentDashboard)
+            log_viewer = dashboard.query_one("#log-viewer")
+            
+            # Reset UI elements for new run
+            self.execution_results = []
+            self.query_one(ExecutionPlanDisplay).update_plan(None)
+            self.query_one(ResultsPanel).update_results([])
+            
+            # Prepare Live Execution Panel
+            live_panel = dashboard.query_one(LiveExecutionPanel)
+            live_panel.clear()
+            live_panel.add_class("-visible")
+
+            # Clear input
+            event.input.value = ""
+            
+            # Show user message
+            log_viewer.add_log(f"💬 You: {command}", "info")
+            self.query_one(StatusBar).agent_state = "thinking"
+            dashboard.query_one(StateIndicator).state = "thinking"
+            
+            # Send to bridge
+            self.run_worker(self.bridge.process_request(command), exclusive=True)
+
+    def on_directory_tree_file_selected(self, event: FileExplorer.FileSelected) -> None:
+        """Handle file selection from sidebar"""
+        path = event.path
+        if path.is_file():
+            # Load file in CodeViewer
+            code_viewer = self.query_one(CodeViewer)
+            code_viewer.load_file(path)
+            
+            # Switch to Code tab
+            self.query_one(TabbedContent).active = "tab-code"
+            logger.info(f"Opened file: {path}")
     
     async def on_agent_start(self) -> None:
-        """Called when agent starts processing"""
-        logger.info("on_agent_start called")
-        self.agent_state = "thinking"
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        logger.info("Got log viewer")
-        log_viewer.add_log("🚀 Agent started processing...", "agent")
-        self.screen.refresh()  # Force screen refresh
-        logger.info("Added agent start message to log viewer")
-    
+        self.query_one(StatusBar).agent_state = "thinking"
+        
     async def on_node_update(self, node_name: str, node_output: dict) -> None:
-        """Called when agent node produces output"""
-        logger.info(f"on_node_update called for node: {node_name}")
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        logger.info("Got log viewer in on_node_update")
+        logger.info(f"Node Update: {node_name}, data: {list(node_output.keys())}")
+        dashboard = self.query_one(AgentDashboard)
+        log_viewer = dashboard.query_one("#log-viewer")
         
-        try:
-            # Log node activation (subtle, not intrusive)
-            log_viewer.add_log(f"[{node_name.upper()}]", "agent")
-            logger.info(f"Added node name to log viewer: [{node_name.upper()}]")
-            
-            # Show execution plan in chat
-            if "execution_plan" in node_output and node_output["execution_plan"]:
-                plan = node_output["execution_plan"]
-                logger.info(f"Found execution_plan with {len(plan.commands)} commands")
-                
-                log_viewer.add_log(f"📋 Plan: {plan.overall_strategy}", "success")
-                if plan.commands:
-                    log_viewer.add_log(f"   Commands: {len(plan.commands)}", "info")
-                logger.info("Showed plan in chat")
-            
-            # Show results in chat
-            if "results" in node_output and node_output["results"]:
-                logger.info(f"Found {len(node_output['results'])} results")
-                last_result = node_output["results"][-1]
-                log_viewer.add_result(last_result)
-                logger.info("Showed result in chat")
-            
-            # Show messages (main output)
-            if "messages" in node_output and node_output["messages"]:
-                logger.info(f"Found {len(node_output['messages'])} messages")
-                last_msg = node_output["messages"][-1]
-                content = last_msg.content
-                logger.info(f"Last message content (first 100 chars): {content[:100]}")
-                
-                # Show agent response
-                if "✅" in content or "Success" in content:
-                    log_viewer.add_log(content, "success")
-                elif "❌" in content or "Failed" in content:
-                    log_viewer.add_log(content, "error")
-                elif "⚠️" in content or "warning" in content.lower():
-                    log_viewer.add_log(content, "warning")
-                else:
-                    log_viewer.add_log(content, "info")
-                logger.info("Added message to log viewer")
-            
-            # Add spacing for readability
-            log_viewer.add_log("", "info")
-            
-            # Force screen update
-            self.screen.refresh()
-            self.refresh(layout=True)
-            logger.info(f"on_node_update completed for {node_name}")
-        except Exception as e:
-            # Log any errors in UI update
-            import traceback
-            error_details = traceback.format_exc()
-            logger.error(f"UI Update Error in on_node_update: {str(e)}")
-            logger.error(f"Traceback: {error_details}")
-            log_viewer.add_log(f"❌ Error: {str(e)}", "error")
-            self.screen.refresh()
-    
-    async def on_approval_required(self, state: dict) -> None:
-        """Called when approval is required"""
-        self.agent_state = "waiting"
-        status_bar = self.query_one(StatusBar)
-        status_bar.agent_state = "waiting"
-        status_bar.status = "Waiting for approval..."
-        
-        # Get current command
-        plan = state.get("execution_plan")
-        idx = state.get("current_command_index", 0)
-        
-        if plan and idx < len(plan.commands):
-            cmd = plan.commands[idx]
-            
-            # Show approval dialog
-            approval_dialog = self.query_one("#approval-dialog", ApprovalDialog)
-            approval_dialog.command = cmd.cmd
-            approval_dialog.risk_level = cmd.risk_level
-            
-            # Extract warnings from messages
-            warnings = []
-            for msg in state.get("messages", []):
-                if "⚠️" in msg.content and "Safety warnings:" in msg.content:
-                    warnings_str = msg.content.split("Safety warnings:")[1].strip()
-                    warnings = [w.strip() for w in warnings_str.split(",")]
-            
-            approval_dialog.warnings = warnings
-            approval_dialog.display = True
-            
-            # Add to log
-            log_viewer = self.query_one("#log-viewer", LogViewer)
-            log_viewer.add_log("\n⏸️  APPROVAL REQUIRED", "warning")
-            log_viewer.add_command(cmd.cmd)
-            self.screen.refresh()  # Force screen refresh
-    
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses"""
-        if event.button.id == "approve-btn":
-            await self.handle_approval(True)
-        elif event.button.id == "reject-btn":
-            await self.handle_approval(False)
-    
-    async def handle_approval(self, approved: bool) -> None:
-        """Handle approval decision"""
-        # Hide dialog
-        approval_dialog = self.query_one("#approval-dialog", ApprovalDialog)
-        approval_dialog.display = False
-        
-        # Log decision
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        if approved:
-            log_viewer.add_log("✅ Command approved by user", "success")
-            self.agent_state = "executing"
-            status_bar = self.query_one(StatusBar)
-            status_bar.agent_state = "executing"
-            status_bar.status = "Executing command..."
-        else:
-            log_viewer.add_log("❌ Command rejected by user", "error")
-            self.agent_state = "idle"
-        
-        # Provide decision to agent in background task
-        self.run_worker(self.bridge.provide_approval(approved), exclusive=True)
-    
-    async def on_approval_rejected(self) -> None:
-        """Called when user rejects approval"""
-        self.agent_state = "idle"
-        status_bar = self.query_one(StatusBar)
-        status_bar.agent_state = "idle"
-        status_bar.status = "Ready"
-        
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        log_viewer.add_log("Execution cancelled by user.", "info")
-    
-    async def on_agent_complete(self, state: dict) -> None:
-        """Called when agent completes"""
-        self.agent_state = "complete"
-        status_bar = self.query_one(StatusBar)
-        status_bar.agent_state = "complete"
-        status_bar.status = "Ready"
-        
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        log_viewer.add_log("\n✅ Agent execution completed!", "success")
-        log_viewer.add_log("", "info")
-        
-        self.screen.refresh()  # Force screen refresh
-    
-    async def on_agent_error(self, error: str) -> None:
-        """Called when agent encounters error"""
-        self.agent_state = "error"
-        status_bar = self.query_one(StatusBar)
-        status_bar.agent_state = "error"
-        status_bar.status = "Error occurred"
-        
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        log_viewer.add_log(f"\n❌ Error: {error}", "error")
-        self.screen.refresh()  # Force screen refresh
-    
-    def action_clear_logs(self) -> None:
-        """Clear log viewer"""
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        log_viewer.clear()
-        log_viewer.add_log("📋 Logs cleared", "info")
-    
-    def action_reset(self) -> None:
-        """Reset the application"""
-        # Clear logs
-        log_viewer = self.query_one("#log-viewer", LogViewer)
-        log_viewer.clear()
-        
-        # Reset status
-        self.agent_state = "idle"
-        status_bar = self.query_one(StatusBar)
-        status_bar.agent_state = "idle"
-        status_bar.status = "Ready"
-        
-        log_viewer.add_log("🔄 Application reset", "info")
+        # Log basic node info
+        log_viewer.add_log(f"[{node_name}]", "agent")
+        if "messages" in node_output and node_output["messages"]:
+            log_viewer.add_log(node_output["messages"][-1].content, "info")
 
+        # Update Execution Plan
+        if "execution_plan" in node_output and node_output["execution_plan"] is not None:
+            plan: ExecutionPlan = node_output["execution_plan"]
+            self.query_one(ExecutionPlanDisplay).update_plan(plan)
+
+        # Update LiveExecutionPanel and ResultsPanel after a command
+        if node_name == "execute_command" and "results" in node_output and node_output["results"]:
+            last_result: ExecutionResult = node_output["results"][-1]
+            
+            # Update live panel with latest result
+            dashboard.query_one(LiveExecutionPanel).set_content(last_result)
+            dashboard.query_one(StateIndicator).state = "executing"
+            
+            # Update cumulative results panel
+            self.execution_results.append(last_result)
+            self.query_one(ResultsPanel).update_results(self.execution_results)
+
+
+    async def on_agent_complete(self, state: dict) -> None:
+        self.query_one(StatusBar).agent_state = "complete"
+        dashboard = self.query_one(AgentDashboard)
+        dashboard.query_one(StateIndicator).state = "complete"
+        dashboard.query_one(LiveExecutionPanel).remove_class("-visible")
+
+    async def on_agent_error(self, error: str) -> None:
+        self.query_one(StatusBar).agent_state = "error"
+        dashboard = self.query_one(AgentDashboard)
+        dashboard.query_one(StateIndicator).state = "error"
+        dashboard.query_one("#log-viewer").add_log(f"Error: {error}", "error")
+        dashboard.query_one(LiveExecutionPanel).remove_class("-visible")
 
 def run_tui():
-    """Run the TUI application"""
     app = ShellAgentTUI()
     app.run()
-
 
 if __name__ == "__main__":
     run_tui()
