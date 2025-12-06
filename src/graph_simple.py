@@ -90,6 +90,7 @@ async def agent_node(state: ShellAgentState) -> ShellAgentState:
     llm_client = get_llm_client()
     
     # Bind all tools to LLM
+    # Bind all tools to LLM
     all_tools = [
         shell_tools.get_system_info,
         shell_tools.execute_shell_command,
@@ -114,39 +115,18 @@ async def agent_node(state: ShellAgentState) -> ShellAgentState:
             system_info = await shell_tools.get_system_info.ainvoke({})
             state["system_info"] = system_info
         
-        system_message = AIMessage(content=f"""You are the **EXECUTION UNIT** of the shell agent.
-Your ONLY goal is to execute the tools required to fulfill the user's request, based on the logical plan provided in the conversation history.
-
-Current context:
-- OS: {system_info['os_type']}
-- Shell: {system_info['shell_type']}
-- Directory: {system_info['working_directory']}
-
-Available Tools:
-1. **Shell Commands**: execute_shell_command - Run any shell command
-2. **File Reading**: read_file_content - Read file contents
-3. **File Writing**: write_file - Create or modify files
-4. **File Editing**: modify_file - Search and replace within files
-5. **File Search**: search_in_files - Find text in files (grep-like, case-insensitive)
-6. **Project Analysis**: list_project_files
-7. **Web Search**: web_search - Search the internet for information (e.g., current events, documentation, solutions to errors) # Add this line
-8. **Web Crawl**: recursive_crawl - Recursively crawl a website to fetch content from multiple pages.
-
-**CRITICAL RULES**:
-1. **DO NOT CHAT**. Do not say "Okay", "I will do that", or "Here is the plan".
-2. **JUST ACT**. Call the appropriate tool immediately.
-3. If the user asks a question that requires information, CALL THE TOOL to get that information.
-4. If you have enough information to answer, then you can speak (this will end the execution loop).
-5. Prefer `list_project_files` to explore unknown directories.
-
-Be a silent, precise executor. Use tools to accomplish tasks.""")
+        # Load prompt from centralized system
+        from src.prompts import get_prompt
+        system_message = AIMessage(content=get_prompt(
+            "agent.system",
+            os_type=system_info['os_type'],
+            shell_type=system_info['shell_type'],
+            working_directory=system_info['working_directory']
+        ))
         
         messages = [system_message] + messages
 
-    # INJECTION: If the last message is from Thinking Node (AIMessage without tools), 
-    # force the Agent to treat it as a text plan that needs execution.
-    if len(messages) > 0 and isinstance(messages[-1], AIMessage) and not messages[-1].tool_calls:
-        messages = messages + [HumanMessage(content="Proceed with the identified next step. Execute the tools immediately.")]
+
     
     # Invoke LLM
     response = await llm_with_tools.ainvoke(messages)
@@ -220,6 +200,6 @@ if __name__ == "__main__":
     import asyncio
     
     async def main():
-        await run_simple_agent("where have I defined the graph for this project?")
+        await run_simple_agent("What is the current weather in London?")
     
     asyncio.run(main())

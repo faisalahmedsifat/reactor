@@ -62,7 +62,7 @@ class AgentBridge:
         try:
             # Stream execution
             event_count = 0
-            async for event in self.graph.astream(initial_state, config, stream_mode="updates"):
+            async for event in self.graph.astream(initial_state, config, stream_mode="updates", recursion_limit=100):
                 event_count += 1
                 for node_name, node_output in event.items():
                     logger.info(f"Processing node: {node_name}")

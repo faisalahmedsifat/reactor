@@ -18,11 +18,13 @@ from src.tui.widgets import (
     FuzzyFinder,
     CommandPalette
 )
+from src.tui.widgets.file_reference_modal import FileReferenceModal
+from src.tui.widgets.diff_viewer import DiffViewer
+from src.tui.widgets.todo_panel import TODOPanel
 from src.tui.widgets.agent_ui import (
     StateIndicator, 
     LiveExecutionPanel, 
-    ExecutionPlanDisplay,
-    ResultsPanel
+    ExecutionPlanDisplay
 )
 from src.tui.bridge import AgentBridge
 from src.models import ExecutionResult, ExecutionPlan
@@ -56,6 +58,7 @@ class ShellAgentTUI(App):
         Binding("ctrl+backslash", "toggle_context", "Context Panel"),
         Binding("ctrl+p", "fuzzy_find", "Find File"),
         Binding("ctrl+shift+p", "command_palette", "Command Palette"),
+        Binding("escape", "cancel_agent", "Cancel Agent"),
     ]
     
     # Global Reactive State
@@ -67,6 +70,7 @@ class ShellAgentTUI(App):
         self.bridge = AgentBridge(self)
         self.state = TUIState()
         self.execution_results: List[ExecutionResult] = []
+        self.agent_worker = None  # Track running agent worker
         
     def compose(self) -> ComposeResult:
         """Create the Cyberpunk IDE layout"""
@@ -87,12 +91,14 @@ class ShellAgentTUI(App):
             # Col 3: Context
             with Vertical(id="col-context"):
                 yield Static("CONTEXT / DRAFT", classes="panel-header")
-                yield CodeViewer(id="code-viewer")
+                with Container(id="right-panel"):
+                    yield DiffViewer(id="diff-viewer")
                 yield Static("LIVE OUTPUT", classes="panel-header")
                 yield LiveExecutionPanel(id="live-execution")
                 yield Static("EXECUTION PLAN", classes="panel-header")
-                yield ExecutionPlanDisplay(id="plan-display")
-                yield ResultsPanel(id="results-panel")
+                yield ExecutionPlanDisplay(id="execution-plan")
+                yield Static("TODO TASKS", classes="panel-header")
+                yield TODOPanel(id="todo-panel")
         
         # Footer
         yield StatusBar(id="status-bar")
@@ -146,6 +152,16 @@ class ShellAgentTUI(App):
         """Open Command Palette"""
         self.push_screen(CommandPalette())
 
+    def action_cancel_agent(self) -> None:
+        """Cancel running agent execution"""
+        if hasattr(self, 'agent_worker') and self.agent_worker and self.agent_worker.is_running:
+            self.agent_worker.cancel()
+            dashboard = self.query_one(AgentDashboard)
+            dashboard.query_one("#log-viewer").add_log("⚠️ Agent execution cancelled by user", "warning")
+            self.query_one(StatusBar).agent_state = "idle"
+            dashboard.query_one(StateIndicator).state = "complete"
+            self.query_one(LiveExecutionPanel).remove_class("-visible")
+
     def action_clear_logs(self) -> None:
         """Clear the agent log viewer"""
         log_viewer = self.query_one(AgentDashboard).query_one("#log-viewer")
@@ -173,7 +189,61 @@ class ShellAgentTUI(App):
         else:
             logger.warning(f"Unknown command palette action: {event.action}")
 
+
+    # --- File Reference Modal Handlers ---
+    
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Detect @ and open file reference modal"""
+        if event.input.id == "agent-input" and event.value.endswith("@"):
+            self.push_screen(FileReferenceModal())
+    
+    def on_file_reference_modal_file_selected(self, message: FileReferenceModal.FileSelected) -> None:
+        """Insert selected file path into input"""
+        agent_input = self.query_one("#agent-input", Input)
+        current = agent_input.value
+        # Replace trailing @ with @filepath
+        agent_input.value = current[:-1] + f"@{message.path} "
+        agent_input.focus()
+    
     # --- Agent Bridge Handlers ---
+    
+    def _handle_slash_command(self, command: str) -> None:
+        """Handle slash commands like /clear, /help, /compact"""
+        dashboard = self.query_one(AgentDashboard)
+        log_viewer = dashboard.query_one("#log-viewer")
+        
+        if command == "/clear":
+            # Clear the log viewer by removing all children
+            for child in log_viewer.query("*"):
+                child.remove()
+            log_viewer.add_log("🧹 Conversation cleared", "info")
+            
+            # Reset execution results
+            self.execution_results = []
+            self.query_one(ExecutionPlanDisplay).update_plan(None)
+            
+            # Clear conversation in bridge (reset agent state)
+            if hasattr(self.bridge, 'reset_conversation'):
+                self.bridge.reset_conversation()
+        
+        elif command == "/compact":
+            # Compact current conversation
+            log_viewer.add_log("🗜️ Compacting conversation...", "info")
+            self.query_one(StatusBar).agent_state = "compacting"
+            
+            # Trigger compaction via bridge
+            import asyncio
+            asyncio.create_task(self._compact_conversation_async(log_viewer))
+        
+        elif command == "/help":
+            help_text = """**Available Commands:**
+- `/clear` - Clear conversation history
+- `/compact` - Summarize and compact conversation
+- `/help` - Show this help message
+- `@filename` - Reference a file in your message"""
+            log_viewer.add_log(help_text, "info")
+        else:
+            log_viewer.add_log(f"⚠️ Unknown command: {command}. Type /help for available commands.", "warning")
     
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle input from AgentDashboard"""
@@ -181,6 +251,21 @@ class ShellAgentTUI(App):
             command = event.value.strip()
             if not command:
                 return
+            
+            # Handle slash commands
+            if command.startswith("/"):
+                self._handle_slash_command(command)
+                event.input.value = ""
+                return
+            
+            # Extract @ file references
+            import re
+            file_refs = re.findall(r'@([^\s]+)', command)
+            
+            # If file references exist, prepend instruction to read them first
+            if file_refs:
+                files_str = ", ".join([f'"{ref}"' for ref in file_refs])
+                command = f"Before proceeding, use read_file_content tool to read these files: {files_str}. Then: {command}"
                 
             dashboard = self.query_one(AgentDashboard)
             log_viewer = dashboard.query_one("#log-viewer")
@@ -188,7 +273,6 @@ class ShellAgentTUI(App):
             # Reset UI elements for new run
             self.execution_results = []
             self.query_one(ExecutionPlanDisplay).update_plan(None)
-            self.query_one(ResultsPanel).update_results([])
             
             # Prepare Live Execution Panel
             live_panel = self.query_one(LiveExecutionPanel)
@@ -198,24 +282,28 @@ class ShellAgentTUI(App):
             # Clear input
             event.input.value = ""
             
-            # Show user message
-            log_viewer.add_log(f"💬 You: {command}", "info")
+            # Show user message (original, before modification)
+            log_viewer.add_log(f"💬 You: {event.value.strip()}", "info")
             self.query_one(StatusBar).agent_state = "thinking"
             dashboard.query_one(StateIndicator).state = "thinking"
             
             # Send to bridge with execution mode
             execution_mode = self.query_one(AgentDashboard).execution_mode
-            self.run_worker(self.bridge.process_request(command, execution_mode), exclusive=True)
+            self.agent_worker = self.run_worker(self.bridge.process_request(command, execution_mode), exclusive=True)
 
     def on_directory_tree_file_selected(self, event: FileExplorer.FileSelected) -> None:
         """Handle file selection from sidebar"""
         path = event.path
         if path.is_file():
-            # Load file in CodeViewer
-            code_viewer = self.query_one(CodeViewer)
-            code_viewer.load_file(path)
-            
-            logger.info(f"Opened file: {path}")
+            # Show file in diff viewer (future: could show original content)
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                # For now, just log the file open
+                # DiffViewer will show diffs when files are modified
+                logger.info(f"Opened file: {path}")
+            except Exception as e:
+                logger.error(f"Error opening file {path}: {e}")
     
     def on_agent_dashboard_execution_mode_toggled(self, message: "AgentDashboard.ExecutionModeToggled") -> None:
         """Handle execution mode toggle from dashboard"""
@@ -250,10 +338,32 @@ class ShellAgentTUI(App):
             self.query_one(LiveExecutionPanel).set_content(last_result)
             dashboard.query_one(StateIndicator).state = "executing"
             
-            # Update cumulative results panel
             self.execution_results.append(last_result)
-            self.query_one(ResultsPanel).update_results(self.execution_results)
 
+
+
+    async def _compact_conversation_async(self, log_viewer):
+        """Async method to compact conversation"""
+        try:
+            from src.utils.conversation_compactor import compact_conversation
+            
+            # Get current messages from bridge state
+            if hasattr(self.bridge, 'state') and 'messages' in self.bridge.state:
+                messages = self.bridge.state['messages']
+                
+                # Perform compaction
+                compacted = await compact_conversation(messages, target_tokens=10000)
+                
+                # Update bridge state with compacted messages
+                self.bridge.state['messages'] = compacted
+                
+                log_viewer.add_log("✅ Conversation compacted successfully", "info")
+                log_viewer.add_log("📝 Summary created, recent context preserved", "info")
+            else:
+                log_viewer.add_log("⚠️ No conversation to compact", "info")
+        except Exception as e:
+            log_viewer.add_log(f"❌ Error compacting: {str(e)}", "error")
+            logger.error(f"Compaction error: {e}")
 
     async def on_agent_complete(self, state: dict) -> None:
         self.query_one(StatusBar).agent_state = "complete"

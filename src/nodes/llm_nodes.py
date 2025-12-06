@@ -32,33 +32,13 @@ def get_llm_client() -> BaseChatModel:
 
 async def llm_parse_intent_node(state: ShellAgentState) -> ShellAgentState:
     """Node: Use LLM to parse user intent"""
+    from src.prompts import get_prompt
     
     llm_client = get_llm_client()
     system_info = state["system_info"]
     user_input = state["user_input"]
     
-    system_prompt = """You are an expert shell command interpreter.
-    
-    Analyze user requests to understand their goals. Extract:
-    - Core task description
-    - Operation category
-    - Relevant entities (files, packages, directories)
-    - Constraints or safety requirements
-    - Your confidence level (0-1)
-    
-    IMPORTANT: Determine if this is an ANALYTICAL task or an EXECUTION task:
-    - ANALYTICAL: User wants to understand/analyze/review code or project (use categories: analysis, information_gathering, code_review)
-    - EXECUTION: User wants to run commands, install packages, modify files, etc. (use other categories)
-    
-    Output ONLY valid JSON matching this schema:
-    {
-      "task_description": "clear description of what user wants",
-      "category": "analysis|information_gathering|code_review|file_operation|environment_setup|package_management|git_operation|system_info|process_management|network_operation|other",
-      "key_entities": ["list", "of", "relevant", "items"],
-      "constraints": ["any", "safety", "or", "requirement", "constraints"],
-      "user_intent_confidence": 0.9,
-      "is_analytical": true_or_false
-    }"""
+    system_prompt = get_prompt("llm.parse_intent")
 
     user_prompt = f"""Request: "{user_input}"
 
@@ -105,36 +85,13 @@ Analyze and output JSON:"""
 
 async def llm_generate_plan_node(state: ShellAgentState) -> ShellAgentState:
     """Node: Use LLM to generate execution plan"""
+    from src.prompts import get_prompt
     
     llm_client = get_llm_client()
     intent = state["intent"]
     system_info = state["system_info"]
     
-    system_prompt = """You are an expert systems administrator.
-
-    Generate safe, efficient shell commands. Rules:
-    1. NEVER risk data loss without confirmation
-    2. Check tool/file existence first
-    3. Prefer non-destructive operations
-    4. Backup before modifying critical files
-    5. Explain every command clearly
-    
-    Output ONLY valid JSON matching this schema:
-    {
-      "commands": [
-        {
-          "cmd": "actual shell command",
-          "description": "what this does",
-          "reasoning": "why this approach",
-          "risk_level": "safe|moderate|dangerous",
-          "reversible": true,
-          "dependencies": [0, 1]
-        }
-      ],
-      "overall_strategy": "high-level approach",
-      "potential_issues": ["possible", "problems"],
-      "estimated_duration_seconds": 10
-    }"""
+    system_prompt = get_prompt("llm.generate_plan")
 
     user_prompt = f"""Task: {intent.task_description}
 Category: {intent.category}
@@ -192,6 +149,7 @@ Generate execution plan as JSON:"""
 
 async def llm_analyze_error_node(state: ShellAgentState) -> ShellAgentState:
     """Node: Use LLM to analyze errors and suggest fixes"""
+    from src.prompts import get_prompt
     
     llm_client = get_llm_client()
     plan = state["execution_plan"]
@@ -199,20 +157,7 @@ async def llm_analyze_error_node(state: ShellAgentState) -> ShellAgentState:
     current_cmd = plan.commands[idx]
     last_result = state["results"][-1]
     
-    system_prompt = """You are an expert debugger.
-
-    Analyze command failures and provide:
-    - Root cause analysis
-    - Suggested fix (new command or approach)
-    - Whether to retry automatically
-    
-    Output ONLY valid JSON:
-    {
-      "root_cause": "detailed explanation",
-      "suggested_fix": "corrected command or approach",
-      "should_retry": true,
-      "modified_command": "fixed command string"
-    }"""
+    system_prompt = get_prompt("llm.analyze_error")
 
     user_prompt = f"""Task: {plan.overall_strategy}
 Failed Command: {current_cmd.cmd}
@@ -266,22 +211,13 @@ Note: Could not parse structured analysis (error: {type(e).__name__})
 
 async def llm_reflection_node(state: ShellAgentState) -> ShellAgentState:
     """Node: LLM reflects on execution and provides insights"""
+    from src.prompts import get_prompt
     
     llm_client = get_llm_client()
     results = state["results"]
     plan = state["execution_plan"]
     
-    system_prompt = """Review command execution results and provide a Final Response to the user.
-    
-    CRITICAL: Your primary goal is to ANSWER the user's original request based on the command outputs.
-    
-    Structure your response as follows:
-    
-    ## 📝 Answer
-    [Direct, comprehensive answer to the user's question. Focus on the results found.]
-    
-    ## 💭 Expert Critique & Improvements
-    [Critically analyze the process. Identify inefficiencies, missing checks, or better "Power-User" approaches. Suggest concrete architectural or command improvements. Be technical and harsh if necessary to improve quality.]"""
+    system_prompt = get_prompt("llm.reflection")
 
     execution_summary = "\n".join([
         f"{'✓' if r.success else '✗'} {r.command}: {r.stdout[:500] if r.success else r.stderr[:500]}"

@@ -274,14 +274,20 @@ async def search_in_files(pattern: str, directory: str = ".", file_extensions: O
 
 
 @tool
-async def write_file(file_path: str, content: str, mode: str = "write") -> Dict:
+async def write_file(file_path: str, content: str, mode: str = "create") -> Dict:
     """
     Write content to a file. Creates the file and parent directories if they don't exist.
+    
+    SAFETY: Default mode is "create" to prevent accidental overwrites.
+    For existing files, use modify_file() instead.
     
     Args:
         file_path: Path to file (relative or absolute)
         content: Content to write to the file
-        mode: Write mode - "write" (overwrite), "append", or "create" (fail if exists)
+        mode: Write mode (default: "create")
+            - "create": Create new file only (SAFE - fails if file exists)
+            - "append": Append to existing file
+            - "write": Overwrite entire file (DANGEROUS - use with caution!)
     
     Returns:
         Dictionary with operation status and file info
@@ -297,8 +303,16 @@ async def write_file(file_path: str, content: str, mode: str = "write") -> Dict:
             return {
                 "error": f"File already exists: {file_path}",
                 "file_path": str(path),
-                "exists": True
+                "exists": True,
+                "suggestion": "Use modify_file() to edit existing files, or use mode='write' to overwrite (dangerous!)"
             }
+        
+        # Safety warning for overwrite mode
+        if mode == "write" and file_exists:
+            # Log warning but proceed (user explicitly chose overwrite)
+            import logging
+            logging.warning(f"OVERWRITING existing file: {file_path} - All previous content will be lost!")
+
         
         # Create parent directories if needed
         path.parent.mkdir(parents=True, exist_ok=True)

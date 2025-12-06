@@ -328,3 +328,39 @@ Collapsible > Static {
     border-left: solid $border-dim; 
     height: auto;
 }
+
+/* File Reference Modal */
+FileReferenceModal {
+    align: center middle;
+}
+
+#file-ref-container {
+    width: 80;
+    height: 25;
+    background: $bg-tertiary;
+    border: solid $accent-cyan;
+    padding: 1;
+}
+
+#file-ref-title {
+    text-align: center;
+    color: $accent-cyan;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#file-ref-input {
+    margin-bottom: 1;
+}
+
+#file-ref-list {
+    height: 18;
+}
+
+#file-ref-list > ListItem {
+    padding: 0 1;
+}
+
+#file-ref-list > ListItem:hover {
+    background: $accent-cyan 20%;
+}
