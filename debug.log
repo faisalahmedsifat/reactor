@@ -1,0 +1,124 @@
+2025-12-05 17:23:11,782 [INFO] ================================================================================
+2025-12-05 17:23:11,782 [INFO] TUI Application Starting
+2025-12-05 17:23:11,782 [INFO] ================================================================================
+2025-12-05 17:23:11,801 [INFO] AgentBridge initializing
+2025-12-05 17:23:11,841 [INFO] AgentBridge initialized
+2025-12-05 17:23:11,841 [DEBUG] Using proactor: IocpProactor
+2025-12-05 17:23:11,931 [INFO] on_mount called - App is mounting
+2025-12-05 17:23:11,931 [INFO] Approval dialog hidden
+2025-12-05 17:23:11,931 [INFO] Focused input widget: command-input
+2025-12-05 17:23:11,932 [INFO] Welcome messages added to log viewer
+2025-12-05 17:23:11,932 [INFO] on_mount complete - App ready for input
+2025-12-05 17:23:17,062 [INFO] on_input_submitted CALLED! Value='hi', ID=command-input
+2025-12-05 17:23:17,062 [INFO] This is our command input!
+2025-12-05 17:23:17,062 [INFO] Stripped command: 'hi'
+2025-12-05 17:23:17,062 [INFO] Cleared input field
+2025-12-05 17:23:17,064 [INFO] Added user request to log viewer
+2025-12-05 17:23:17,064 [INFO] Updated status bar to 'thinking'
+2025-12-05 17:23:17,065 [INFO] About to call run_worker...
+2025-12-05 17:23:17,065 [INFO] run_worker returned: <Worker RUNNING name='process_request' description='<coroutine object AgentBridge.process_request at 0x00000236245B3B60>'>
+2025-12-05 17:23:17,065 [INFO] Worker started successfully!
+2025-12-05 17:23:17,065 [INFO] Bridge.process_request called with: 'hi'
+2025-12-05 17:23:17,066 [INFO] Calling on_agent_start
+2025-12-05 17:23:17,066 [INFO] on_agent_start called
+2025-12-05 17:23:17,066 [INFO] Got log viewer
+2025-12-05 17:23:17,066 [INFO] Added agent start message to log viewer
+2025-12-05 17:23:17,066 [INFO] Starting agent stream
+2025-12-05 17:23:17,133 [INFO] Event #1: ['gather_system_info']
+2025-12-05 17:23:17,133 [INFO] Processing node: gather_system_info
+2025-12-05 17:23:17,133 [INFO] on_node_update called for node: gather_system_info
+2025-12-05 17:23:17,134 [INFO] Got log viewer in on_node_update
+2025-12-05 17:23:17,135 [INFO] Added node name to log viewer: [GATHER_SYSTEM_INFO]
+2025-12-05 17:23:17,135 [INFO] Found 2 messages
+2025-12-05 17:23:17,135 [INFO] Last message content (first 100 chars): System: windows | Shell: powershell | Dir: C:\Users\faisa\Dev\agents\reactive-shell-agent
+2025-12-05 17:23:17,136 [INFO] Added message to log viewer
+2025-12-05 17:23:17,137 [INFO] on_node_update completed for gather_system_info
+2025-12-05 17:23:17,829 [DEBUG] [_cygrpc] Loaded running loop: id(loop)=2431579658224
+2025-12-05 17:23:17,830 [DEBUG] Using AsyncIOEngine.POLLER as I/O engine
+2025-12-05 17:23:17,831 [DEBUG] [_cygrpc] Loaded running loop: id(loop)=2431579658224
+2025-12-05 17:23:17,834 [DEBUG] [_cygrpc] Loaded running loop: id(loop)=2431579658224
+2025-12-05 17:23:19,671 [INFO] Event #2: ['llm_parse_intent']
+2025-12-05 17:23:19,671 [INFO] Processing node: llm_parse_intent
+2025-12-05 17:23:19,671 [INFO] on_node_update called for node: llm_parse_intent
+2025-12-05 17:23:19,671 [INFO] Got log viewer in on_node_update
+2025-12-05 17:23:19,672 [INFO] Added node name to log viewer: [LLM_PARSE_INTENT]
+2025-12-05 17:23:19,672 [INFO] Found 3 messages
+2025-12-05 17:23:19,681 [INFO] Added message to log viewer
+2025-12-05 17:23:19,682 [INFO] on_node_update completed for llm_parse_intent
+2025-12-05 17:23:19,701 [DEBUG] [_cygrpc] Loaded running loop: id(loop)=2431579658224
+2025-12-05 17:23:22,352 [INFO] Event #3: ['llm_generate_plan']
+2025-12-05 17:23:22,352 [INFO] Processing node: llm_generate_plan
+2025-12-05 17:23:22,352 [INFO] on_node_update called for node: llm_generate_plan
+2025-12-05 17:23:22,352 [INFO] Got log viewer in on_node_update
+2025-12-05 17:23:22,353 [INFO] Added node name to log viewer: [LLM_GENERATE_PLAN]
+2025-12-05 17:23:22,353 [INFO] Found execution_plan with 1 commands
+2025-12-05 17:23:22,355 [INFO] Showed plan in chat
+2025-12-05 17:23:22,355 [INFO] Found 4 messages
+2025-12-05 17:23:22,356 [INFO] Added message to log viewer
+2025-12-05 17:23:22,358 [INFO] on_node_update completed for llm_generate_plan
+2025-12-05 17:23:22,378 [INFO] Event #4: ['refine_command']
+2025-12-05 17:23:22,378 [INFO] Processing node: refine_command
+2025-12-05 17:23:22,378 [INFO] on_node_update called for node: refine_command
+2025-12-05 17:23:22,378 [INFO] Got log viewer in on_node_update
+2025-12-05 17:23:22,380 [INFO] Added node name to log viewer: [REFINE_COMMAND]
+2025-12-05 17:23:22,380 [INFO] Found execution_plan with 1 commands
+2025-12-05 17:23:22,381 [INFO] Showed plan in chat
+2025-12-05 17:23:22,382 [INFO] Found 4 messages
+2025-12-05 17:23:22,384 [INFO] Added message to log viewer
+2025-12-05 17:23:22,385 [INFO] on_node_update completed for refine_command
+2025-12-05 17:23:22,403 [INFO] Event #5: ['validate_safety']
+2025-12-05 17:23:22,403 [INFO] Processing node: validate_safety
+2025-12-05 17:23:22,403 [INFO] on_node_update called for node: validate_safety
+2025-12-05 17:23:22,403 [INFO] Got log viewer in on_node_update
+2025-12-05 17:23:22,404 [INFO] Added node name to log viewer: [VALIDATE_SAFETY]
+2025-12-05 17:23:22,404 [INFO] Found execution_plan with 1 commands
+2025-12-05 17:23:22,405 [INFO] Showed plan in chat
+2025-12-05 17:23:22,405 [INFO] Found 4 messages
+2025-12-05 17:23:22,407 [INFO] Added message to log viewer
+2025-12-05 17:23:22,408 [INFO] on_node_update completed for validate_safety
+2025-12-05 17:23:22,710 [INFO] Event #6: ['execute_command']
+2025-12-05 17:23:22,710 [INFO] Processing node: execute_command
+2025-12-05 17:23:22,710 [INFO] on_node_update called for node: execute_command
+2025-12-05 17:23:22,711 [INFO] Got log viewer in on_node_update
+2025-12-05 17:23:22,711 [INFO] Added node name to log viewer: [EXECUTE_COMMAND]
+2025-12-05 17:23:22,711 [INFO] Found execution_plan with 1 commands
+2025-12-05 17:23:22,712 [INFO] Showed plan in chat
+2025-12-05 17:23:22,712 [INFO] Found 1 results
+2025-12-05 17:23:22,713 [INFO] Showed result in chat
+2025-12-05 17:23:22,713 [INFO] Found 5 messages
+2025-12-05 17:23:22,714 [INFO] Added message to log viewer
+2025-12-05 17:23:22,714 [INFO] on_node_update completed for execute_command
+2025-12-05 17:23:22,725 [DEBUG] [_cygrpc] Loaded running loop: id(loop)=2431579658224
+2025-12-05 17:23:28,780 [INFO] Event #7: ['llm_reflection']
+2025-12-05 17:23:28,780 [INFO] Processing node: llm_reflection
+2025-12-05 17:23:28,780 [INFO] on_node_update called for node: llm_reflection
+2025-12-05 17:23:28,780 [INFO] Got log viewer in on_node_update
+2025-12-05 17:23:28,781 [INFO] Added node name to log viewer: [LLM_REFLECTION]
+2025-12-05 17:23:28,782 [INFO] Found execution_plan with 1 commands
+2025-12-05 17:23:28,783 [INFO] Showed plan in chat
+2025-12-05 17:23:28,783 [INFO] Found 1 results
+2025-12-05 17:23:28,785 [INFO] Showed result in chat
+2025-12-05 17:23:28,786 [INFO] Found 6 messages
+2025-12-05 17:23:28,788 [INFO] Added message to log viewer
+2025-12-05 17:23:28,789 [INFO] on_node_update completed for llm_reflection
+2025-12-05 17:23:28,804 [INFO] Event #8: ['summarize']
+2025-12-05 17:23:28,804 [INFO] Processing node: summarize
+2025-12-05 17:23:28,804 [INFO] on_node_update called for node: summarize
+2025-12-05 17:23:28,804 [INFO] Got log viewer in on_node_update
+2025-12-05 17:23:28,805 [INFO] Added node name to log viewer: [SUMMARIZE]
+2025-12-05 17:23:28,805 [INFO] Found execution_plan with 1 commands
+2025-12-05 17:23:28,807 [INFO] Showed plan in chat
+2025-12-05 17:23:28,807 [INFO] Found 1 results
+2025-12-05 17:23:28,807 [INFO] Showed result in chat
+2025-12-05 17:23:28,808 [INFO] Found 7 messages
+2025-12-05 17:23:28,808 [INFO] Last message content (first 100 chars): 
+EXECUTION SUMMARY
+============================================================
+Total Commands: 1
+Su
+2025-12-05 17:23:28,808 [INFO] Added message to log viewer
+2025-12-05 17:23:28,809 [INFO] on_node_update completed for summarize
+2025-12-05 17:23:28,823 [INFO] Streamed 8 events total
+2025-12-05 17:23:28,824 [INFO] Final state - next nodes: ()
+2025-12-05 17:23:28,824 [INFO] Calling on_agent_complete
+2025-12-05 17:23:28,825 [INFO] Bridge processing complete

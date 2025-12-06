@@ -1,0 +1,14 @@
+# Ignore venv
+
+# Ignore __pycache__
+__pycache__
+
+# Ignore .venv
+.venv
+
+# Ignore .env
+.env
+
+*__pycache__*
+
+.env
