@@ -9,6 +9,7 @@ from src.graph_simple import create_simple_shell_agent
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from src.state import ShellAgentState
 from src.models import ExecutionResult
+from src.logger import chat_logger
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class AgentBridge:
     async def process_request(self, user_request: str, execution_mode: str = "sequential") -> None:
         """Process user request through agent"""
         logger.info(f"Bridge.process_request called with: '{user_request}'")
+        chat_logger.log_turn("user", user_request)
         self.running = True
         
         # Initialize state compatibly with simple graph
@@ -65,7 +67,9 @@ class AgentBridge:
                 for node_name, node_output in event.items():
                     logger.info(f"Processing node: {node_name}")
                     
-                    if node_name == "agent":
+                    if node_name == "thinking":
+                        await self.handle_thinking_node(node_output)
+                    elif node_name == "agent":
                         await self.handle_agent_node(node_output)
                     elif node_name == "tools":
                         await self.handle_tools_node(node_output)
@@ -88,8 +92,8 @@ class AgentBridge:
             self.running = False
             logger.info("Bridge processing complete")
     
-    async def handle_agent_node(self, node_output: dict) -> None:
-        """Handle output from the Agent (LLM) node"""
+    async def handle_thinking_node(self, node_output: dict) -> None:
+        """Handle output from difference thinking node"""
         if "messages" in node_output and node_output["messages"]:
             last_msg = node_output["messages"][-1]
             if isinstance(last_msg, AIMessage):
@@ -98,22 +102,55 @@ class AgentBridge:
                 if isinstance(last_msg.content, str):
                     content_text = last_msg.content
                 elif isinstance(last_msg.content, list):
-                    # Handle list of content blocks (e.g. from Anthropic/Google)
                     for block in last_msg.content:
                         if isinstance(block, dict) and "text" in block:
                             content_text += block["text"]
-                        elif hasattr(block, "text"): # Object with text attr
+                        elif hasattr(block, "text"):
                             content_text += block.text
                         elif isinstance(block, str):
                             content_text += block
                 
-                # Log thought process / response if there is text
+                # Log thought process as visible agent message
                 if content_text.strip():
                     dashboard = self.tui_app.query_one("AgentDashboard")
                     log_viewer = dashboard.query_one("#log-viewer")
+                    # Use a subtle prefix or just "Thinking:" if preferred, but user wanted Visible Text
                     log_viewer.add_log(content_text, "agent")
+                    chat_logger.log_turn("agent", f"Thinking: {content_text}")
+
+    async def handle_agent_node(self, node_output: dict) -> None:
+        """Handle output from the Agent (Tool Selector) node"""
+        if "messages" in node_output and node_output["messages"]:
+            last_msg = node_output["messages"][-1]
+            if isinstance(last_msg, AIMessage):
+                # We primarily expect Tool Calls here, but final answer might be here too.
                 
-                # Check for tool calls to display intent
+                # Extract text content (for final answer)
+                content_text = ""
+                if isinstance(last_msg.content, str):
+                    content_text = last_msg.content
+                elif isinstance(last_msg.content, list):
+                    for block in last_msg.content:
+                        if isinstance(block, dict) and "text" in block:
+                            content_text += block["text"]
+                        elif hasattr(block, "text"):
+                            content_text += block.text
+                        elif isinstance(block, str):
+                            content_text += block
+                
+                # Log text ONLY if it is NOT just a tool call preamble/empty
+                # Since ThinkingNode already outputted the thought, we might get duplicate text if we are not careful.
+                # Usually standard ReAct prompt makes LLM output "Thought: ... Tool: ..."
+                # With our split, ThinkingNode did "Thought". AgentNode does "Tool".
+                # But AgentNode might still output some text.
+                # Let's log it if it's substantial, otherwise assume it's covered by Thinking.
+                if content_text.strip():
+                     dashboard = self.tui_app.query_one("AgentDashboard")
+                     log_viewer = dashboard.query_one("#log-viewer")
+                     log_viewer.add_log(content_text, "agent")
+                     chat_logger.log_turn("agent", content_text)
+                
+                # Check for tool calls (The main purpose of this node now)
                 if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
                     for tool_call in last_msg.tool_calls:
                         tool_name = tool_call["name"]

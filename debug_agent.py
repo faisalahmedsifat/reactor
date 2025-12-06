@@ -15,7 +15,7 @@ from src.graph_simple import create_simple_shell_agent
 from langchain_core.messages import HumanMessage
 
 async def main():
-    print("🚀 Starting Debug Run...")
+    print("🚀 Starting Debug Run with Thinking Node...")
     
     agent = create_simple_shell_agent()
     
@@ -25,11 +25,12 @@ async def main():
         "system_info": None
     }
     
-    config = {"configurable": {"thread_id": "debug-1"}}
+    config = {"configurable": {"thread_id": "debug-2"}}
     
+    print("Graph created. Starting stream...")
     async for event in agent.astream(initial_state, config, stream_mode="updates"):
         for node, output in event.items():
-            print(f"\n--- NODE: {node} ---")
+            print(f"\n>>> NODE: {node} <<<")
             if "messages" in output:
                 msgs = output["messages"]
                 if not isinstance(msgs, list):
@@ -38,16 +39,8 @@ async def main():
                 for m in msgs:
                     print(f"Type: {type(m).__name__}")
                     print(f"Content: {repr(m.content)}")
-                    
-                    if hasattr(m, "tool_calls") and m.tool_calls:
-                        print("Tool Calls:")
-                        pprint(m.tool_calls)
-                    
-                    if hasattr(m, "artifact") and m.artifact:
-                        print("Artifact (Tool Output):")
-                        # Truncate if too long
-                        safe_artifact = str(m.artifact)
-                        print(safe_artifact[:500] + "..." if len(safe_artifact) > 500 else safe_artifact)
+                    if hasattr(m, "tool_calls"):
+                        print(f"Tool Calls: {m.tool_calls}")
 
 if __name__ == "__main__":
     asyncio.run(main())

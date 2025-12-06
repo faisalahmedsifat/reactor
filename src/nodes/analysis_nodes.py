@@ -19,39 +19,33 @@ async def discover_files_node(state: ShellAgentState) -> ShellAgentState:
     working_dir = system_info["working_directory"]
     
     # Use file tools to discover project structure
-    project_structure = await file_tools.analyze_project_structure.ainvoke({"directory": working_dir})
+    # NOTE: analyze_project_structure removed as it was unreliable.
+    # We rely on raw file listing now.
     file_listing = await file_tools.list_project_files.ainvoke({"directory": working_dir, "max_depth": 3})
     
     # Store in state for later use
     state["analysis_data"] = {
-        "project_structure": project_structure,
+        "project_structure": {"project_types": ["Detected via extension"], "key_files": {}}, # Skeleton for compatibility
         "file_listing": file_listing
     }
     
     # Create user-facing message
-    if "error" in project_structure:
-        msg = f"🔍 **File Discovery Failed**\n\nError: {project_structure['error']}"
-    else:
-        project_types = ", ".join(project_structure["project_types"])
-        total_files = file_listing.get("total_files", 0)
-        total_dirs = file_listing.get("total_directories", 0)
-        
-        categories_summary = "\n".join([
-            f"- **{cat}**: {len(files)} files" 
-            for cat, files in file_listing.get("files_by_category", {}).items()
-            if files
-        ])
-        
-        msg = f"""🔍 **File Discovery Complete**
+    total_files = file_listing.get("total_files", 0)
+    total_dirs = file_listing.get("total_directories", 0)
+    
+    categories_summary = "\n".join([
+        f"- **{cat}**: {len(files)} files" 
+        for cat, files in file_listing.get("files_by_category", {}).items()
+        if files
+    ])
+    
+    msg = f"""🔍 **File Discovery Complete**
 
-**Project Type**: {project_types}
 **Location**: `{working_dir}`
 **Files**: {total_files} files across {total_dirs} directories
 
 **File Categories**:
 {categories_summary}
-
-**Git Repository**: {"Yes" if project_structure.get("has_git") else "No"}
 
 Now reading key files..."""
     

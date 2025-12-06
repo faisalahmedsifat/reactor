@@ -286,3 +286,32 @@ StatusBar {
     content-align: left middle;
     padding: 0 1;
 }
+
+/* Collapsible Widget Styles */
+Collapsible {
+    height: auto;
+    background: $bg-tertiary;
+    border: none;
+    margin: 0 0 1 0;
+    padding: 0;
+}
+
+CollapsibleTitle {
+    background: $bg-tertiary;
+    color: $text-secondary;
+    padding: 0 1;
+}
+
+CollapsibleTitle:hover {
+    background: $border-dim;
+    color: $accent-cyan;
+}
+
+Collapsible > Static {
+    background: $bg-primary;
+    color: $text-dim;
+    padding: 1;
+    margin-left: 2;
+    border-left: solid $border-dim; 
+    height: auto;
+}

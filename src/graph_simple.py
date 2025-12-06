@@ -16,6 +16,8 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 import os
 
 
+from src.nodes.thinking_nodes import thinking_node
+
 def create_simple_shell_agent():
     """Build simplified LangGraph similar to Claude Code"""
     
@@ -31,18 +33,22 @@ def create_simple_shell_agent():
         file_tools.write_file,
         file_tools.modify_file,
         file_tools.list_project_files,
-        file_tools.analyze_project_structure,
         file_tools.search_in_files,  # grep-like search
     ]
     
     # ============= NODES =============
     
+    workflow.add_node("thinking", thinking_node)
     workflow.add_node("agent", agent_node)
     workflow.add_node("tools", ToolNode(all_tools))
     
     # ============= EDGES =============
     
-    workflow.set_entry_point("agent")
+    # Start with thinking
+    workflow.set_entry_point("thinking")
+    
+    # After thinking, let agent select tools
+    workflow.add_edge("thinking", "agent")
     
     # Conditional: After agent, either use tools or finish
     workflow.add_conditional_edges(
@@ -54,8 +60,8 @@ def create_simple_shell_agent():
         }
     )
     
-    # After using tools, go back to agent
-    workflow.add_edge("tools", "agent")
+    # After using tools, go back to thinking to analyze results
+    workflow.add_edge("tools", "thinking")
     
     # ============= COMPILATION =============
     
@@ -90,7 +96,6 @@ async def agent_node(state: ShellAgentState) -> ShellAgentState:
         file_tools.write_file,
         file_tools.modify_file,
         file_tools.list_project_files,
-        file_tools.analyze_project_structure,
         file_tools.search_in_files,  # grep-like search
     ]
     
@@ -118,7 +123,7 @@ Available Tools:
 3. **File Writing**: write_file - Create or modify files
 4. **File Editing**: modify_file - Search and replace within files
 5. **File Search**: search_in_files - Find text in files (grep-like, case-insensitive)
-6. **Project Analysis**: analyze_project_structure, list_project_files
+6. **Project Analysis**: list_project_files
 
 How to handle requests:
 - "where is X defined" or "find X" → use search_in_files

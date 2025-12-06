@@ -23,6 +23,9 @@ class LogViewer(VerticalScroll):
     
     def add_activity(self, message: str) -> None:
         """Add an activity/tool call to the current execution session"""
+        if not message.strip():
+            return
+            
         self.current_activity.append(message)
         
         # Update or create the activity collapsible
@@ -59,11 +62,17 @@ class LogViewer(VerticalScroll):
     
     def finalize_activity(self):
         """Mark current activity session as complete"""
+        if not self.current_activity:
+            return
+            
         self.current_activity = []
         self.pending_activity_widget = None
     
     def add_log(self, message: str, level: str = "info", is_thought: bool = False) -> None:
         """Add a log message with styling"""
+        if not message.strip():
+            return
+
         from rich.markdown import Markdown as RichMarkdown
         
         # If this is activity/tool output (passed as is_thought by bridge), add to activity section

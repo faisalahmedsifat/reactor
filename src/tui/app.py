@@ -233,32 +233,9 @@ class ShellAgentTUI(App):
         dashboard = self.query_one(AgentDashboard)
         log_viewer = dashboard.query_one("#log-viewer")
         
-        # Log basic node info (Filter out execution details from chat)
-        if node_name not in ["execute_command", "summarize"]:
-            # Mark intermediate outputs as thoughts
-            if node_name in ["agent", "tools"]:
-                log_viewer.add_log(f"[{node_name}]", "agent", is_thought=True)
-                if "messages" in node_output and node_output["messages"]:
-                    last_msg = node_output["messages"][-1]
-                    # Handle different message types
-                    if hasattr(last_msg, 'content') and last_msg.content:
-                        # Only show as thought if it contains tool calls
-                        if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
-                            tool_info = f"Using tools: {', '.join([tc['name'] for tc in last_msg.tool_calls])}"
-                            log_viewer.add_log(tool_info, "info", is_thought=True)
-                        elif not hasattr(last_msg, 'tool_calls'):
-                            # This is the final answer
-                            log_viewer.add_log(str(last_msg.content), "info", is_thought=False)
-                    elif isinstance(last_msg, str):
-                        log_viewer.add_log(last_msg, "info", is_thought=False)
-            else:
-                log_viewer.add_log(f"[{node_name}]", "agent")
-                if "messages" in node_output and node_output["messages"]:
-                    last_msg = node_output["messages"][-1]
-                    if hasattr(last_msg, 'content') and last_msg.content:
-                        log_viewer.add_log(str(last_msg.content), "info")
-                    elif isinstance(last_msg, str):
-                        log_viewer.add_log(last_msg, "info")
+        # Log basic node info - DEPRECATED: Handled by AgentBridge specialized methods
+        # if node_name not in ["execute_command", "summarize"]:
+        #     pass 
 
         # Update Execution Plan
         if "execution_plan" in node_output and node_output["execution_plan"] is not None:
