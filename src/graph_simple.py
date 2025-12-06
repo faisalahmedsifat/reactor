@@ -11,7 +11,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
 
 from src.state import ShellAgentState
-from src.tools import shell_tools, file_tools
+from src.tools import shell_tools, file_tools, web_tools
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 import os
 
@@ -34,6 +34,8 @@ def create_simple_shell_agent():
         file_tools.modify_file,
         file_tools.list_project_files,
         file_tools.search_in_files,  # grep-like search
+        web_tools.web_search,
+        web_tools.recursive_crawl,
     ]
     
     # ============= NODES =============
@@ -97,6 +99,8 @@ async def agent_node(state: ShellAgentState) -> ShellAgentState:
         file_tools.modify_file,
         file_tools.list_project_files,
         file_tools.search_in_files,  # grep-like search
+        web_tools.web_search,
+        web_tools.recursive_crawl,
     ]
     
     llm_with_tools = llm_client.bind_tools(all_tools)
@@ -110,7 +114,8 @@ async def agent_node(state: ShellAgentState) -> ShellAgentState:
             system_info = await shell_tools.get_system_info.ainvoke({})
             state["system_info"] = system_info
         
-        system_message = AIMessage(content=f"""You are an intelligent shell assistant with access to powerful tools.
+        system_message = AIMessage(content=f"""You are the **EXECUTION UNIT** of the shell agent.
+Your ONLY goal is to execute the tools required to fulfill the user's request, based on the logical plan provided in the conversation history.
 
 Current context:
 - OS: {system_info['os_type']}
@@ -124,18 +129,24 @@ Available Tools:
 4. **File Editing**: modify_file - Search and replace within files
 5. **File Search**: search_in_files - Find text in files (grep-like, case-insensitive)
 6. **Project Analysis**: list_project_files
+7. **Web Search**: web_search - Search the internet for information (e.g., current events, documentation, solutions to errors) # Add this line
+8. **Web Crawl**: recursive_crawl - Recursively crawl a website to fetch content from multiple pages.
 
-How to handle requests:
-- "where is X defined" or "find X" → use search_in_files
-- "read X" or "show X" → use read_file_content
-- "create X" or "write X" → use write_file
-- "implement X" or "add feature X" → read existing files, then write_file or modify_file
-- "initialize X project" → execute_shell_command (e.g., npx create-next-app)
-- "what's my IP" → execute_shell_command (ipconfig or curl)
+**CRITICAL RULES**:
+1. **DO NOT CHAT**. Do not say "Okay", "I will do that", or "Here is the plan".
+2. **JUST ACT**. Call the appropriate tool immediately.
+3. If the user asks a question that requires information, CALL THE TOOL to get that information.
+4. If you have enough information to answer, then you can speak (this will end the execution loop).
+5. Prefer `list_project_files` to explore unknown directories.
 
-Be direct, helpful, and proactive. Use tools to accomplish tasks.""")
+Be a silent, precise executor. Use tools to accomplish tasks.""")
         
         messages = [system_message] + messages
+
+    # INJECTION: If the last message is from Thinking Node (AIMessage without tools), 
+    # force the Agent to treat it as a text plan that needs execution.
+    if len(messages) > 0 and isinstance(messages[-1], AIMessage) and not messages[-1].tool_calls:
+        messages = messages + [HumanMessage(content="Proceed with the identified next step. Execute the tools immediately.")]
     
     # Invoke LLM
     response = await llm_with_tools.ainvoke(messages)

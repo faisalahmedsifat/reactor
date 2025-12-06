@@ -4,7 +4,7 @@ src/nodes/thinking_nodes.py
 Nodes for pure logical reasoning without tool execution.
 """
 
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
+from langchain_core.messages import AIMessage, SystemMessage, HumanMessage, ToolMessage
 from src.state import ShellAgentState
 from src.nodes.llm_nodes import get_llm_client
 
@@ -53,6 +53,7 @@ Your role is to orchestrate complex technical tasks with precision, foresight, a
 1.  **Exploration**: You can exploration the codebase using `list_project_files` and `search_in_files` before making changes.
 2.  **Execution**: You can run ANY shell command to install, build, test, or debug.
 3.  **Manipulation**: You can read, write, and patch files using file tools.
+4.  **Web**: You can browse the internet using `recursive_crawl` and `web_search` to gather information.
 
 ### 📝 INSTRUCTIONS
 1.  **Analyze**: Review the user's request and the history. What is the *real* goal?
@@ -70,19 +71,58 @@ Your role is to orchestrate complex technical tasks with precision, foresight, a
     
     # If this is the start, add system prompt
     if len(messages) == 1 and isinstance(messages[0], HumanMessage):
-         messages = [SystemMessage(content=prompt)] + messages
+         context_messages = [SystemMessage(content=prompt)] + messages
     else:
         # Inject system prompt refresh to keep it focused
         context_messages = [SystemMessage(content=prompt)] + messages
         
-        # If the last message was a tool output, force a reaction
-        if is_after_tool:
-            context_messages.append(HumanMessage(content="The tool execution is complete. analyzing the results above, briefly explain what you need to do next."))
+    # If the last message was a tool output, force a reaction
+    if is_after_tool:
+        context_messages.append(HumanMessage(content="The tool execution is complete. analyzing the results above, briefly explain what you need to do next."))
+    else:
+        # Prevent empty response loop
+            context_messages.append(HumanMessage(content="Analyze the current state and determine the next step."))
+
+    messages = context_messages
+
+    # Sanitize messages to prevent "UNEXPECTED_TOOL_CALL"
+    # Convert tool-related structured messages into plain text for the "Brain"
+    sanitized_messages = []
+    for msg in messages:
+        if isinstance(msg, AIMessage) and msg.tool_calls:
+            # Convert tool call to text
+            tool_summaries = []
+            for tc in msg.tool_calls:
+                tool_summaries.append(f"Invoke Tool: {tc['name']} with args {tc['args']}")
             
-        messages = context_messages
+            content = msg.content if msg.content else ""
+            if content:
+                content += "\n"
+            content += "\n".join(tool_summaries)
+            sanitized_messages.append(AIMessage(content=content))
+            
+        elif isinstance(msg, ToolMessage):
+            # Convert tool result to human/system text
+            sanitized_messages.append(HumanMessage(content=f"[Tool Output for {msg.name}]:\n{msg.content}"))
+        else:
+            sanitized_messages.append(msg)
+            
+    messages = sanitized_messages
 
     # Call LLM (without tools bound)
-    response = await llm_client.ainvoke(messages)
+    print(f"\n[DEBUG] Thinking Node Input Messages: {len(messages)}")
+    try:
+        response = await llm_client.ainvoke(messages)
+    except Exception as e:
+        print(f"[DEBUG] LLM Invoke Error: {e}")
+        response = AIMessage(content=f"Error: {e}")
+
+    print(f"[DEBUG] Thinking Node Raw Output: '{response.content}'") 
+    print(f"[DEBUG] Full Response: {response}")
+    
+    if not response.content:
+         print("[DEBUG] WARNING: Empty content received. Injecting fallback.")
+         response.content = "I need to analyze the previous tool output and decide the next step."
     
     # Ensure it's treated as text (no tool calls allowed here, though LLM shouldn't generate them if not bound)
     return {"messages": [response]}
