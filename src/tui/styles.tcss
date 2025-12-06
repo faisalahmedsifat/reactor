@@ -216,6 +216,10 @@ LiveExecutionPanel.-visible {
     display: block;
 }
 
+LiveExecutionPanel.-hidden {
+    display: none;
+}
+
 /* Execution Plan Display */
 ExecutionPlanDisplay {
     background: $bg-secondary;

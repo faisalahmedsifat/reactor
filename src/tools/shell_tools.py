@@ -145,7 +145,8 @@ def execute_shell_command(
             "stdout": f"[DRY RUN] Would execute: {command}",
             "stderr": "",
             "exit_code": 0,
-            "duration_ms": (time.time() - start) * 1000
+            "duration_ms": (time.time() - start) * 1000,
+            "command": command
         }
     
     try:
@@ -177,7 +178,8 @@ def execute_shell_command(
             "stdout": result.stdout,
             "stderr": result.stderr,
             "exit_code": result.returncode,
-            "duration_ms": (time.time() - start) * 1000
+            "duration_ms": (time.time() - start) * 1000,
+            "command": command
         }
     except Exception as e:
         return {
@@ -185,7 +187,8 @@ def execute_shell_command(
             "stdout": "",
             "stderr": str(e),
             "exit_code": -1,
-            "duration_ms": (time.time() - start) * 1000
+            "duration_ms": (time.time() - start) * 1000,
+            "command": command
         }
 
 

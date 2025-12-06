@@ -18,61 +18,61 @@ class LogViewer(VerticalScroll):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.can_focus = True
-        self.current_thoughts = []
-        self.pending_thoughts_widget = None
+        self.current_activity = []
+        self.pending_activity_widget = None
     
-    def add_thought(self, message: str) -> None:
-        """Add a thought/tool call to the current thinking session"""
-        self.current_thoughts.append(message)
+    def add_activity(self, message: str) -> None:
+        """Add an activity/tool call to the current execution session"""
+        self.current_activity.append(message)
         
-        # Update or create the thoughts collapsible
-        if self.pending_thoughts_widget:
+        # Update or create the activity collapsible
+        if self.pending_activity_widget:
             # Update existing collapsible
-            self.update_thoughts_widget()
+            self.update_activity_widget()
         else:
             # Create new collapsible
             from textual.widgets import Collapsible
-            self.pending_thoughts_widget = Collapsible(
+            self.pending_activity_widget = Collapsible(
                 Static(""),
-                title=f"💭 Thoughts ({len(self.current_thoughts)} steps)",
+                title=f"🛠️ Activity ({len(self.current_activity)} steps)",
                 collapsed=True
             )
-            self.mount(self.pending_thoughts_widget)
-            self.update_thoughts_widget()
+            self.mount(self.pending_activity_widget)
+            self.update_activity_widget()
     
-    def update_thoughts_widget(self):
-        """Update the thoughts collapsible content"""
-        if not self.pending_thoughts_widget:
+    def update_activity_widget(self):
+        """Update the activity collapsible content"""
+        if not self.pending_activity_widget:
             return
         
-        # Build thoughts content
-        thoughts_text = "\n\n".join([f"**Step {i+1}:** {t}" for i, t in enumerate(self.current_thoughts)])
+        # Build activity content
+        activity_text = "\n\n".join([f"**Step {i+1}:** {t}" for i, t in enumerate(self.current_activity)])
         
         from rich.markdown import Markdown as RichMarkdown
-        md = RichMarkdown(thoughts_text)
+        md = RichMarkdown(activity_text)
         
         # Update the collapsible's content
-        self.pending_thoughts_widget.title = f"💭 Thoughts ({len(self.current_thoughts)} steps)"
+        self.pending_activity_widget.title = f"🛠️ Activity ({len(self.current_activity)} steps)"
         # The Collapsible contains a Static widget, update that
-        if self.pending_thoughts_widget.children:
-            self.pending_thoughts_widget.children[0].update(md)
+        if self.pending_activity_widget.children:
+            self.pending_activity_widget.children[0].update(md)
     
-    def finalize_thoughts(self):
-        """Mark current thoughts session as complete"""
-        self.current_thoughts = []
-        self.pending_thoughts_widget = None
+    def finalize_activity(self):
+        """Mark current activity session as complete"""
+        self.current_activity = []
+        self.pending_activity_widget = None
     
     def add_log(self, message: str, level: str = "info", is_thought: bool = False) -> None:
         """Add a log message with styling"""
         from rich.markdown import Markdown as RichMarkdown
         
-        # If this is a thought/tool output, add to thoughts section
+        # If this is activity/tool output (passed as is_thought by bridge), add to activity section
         if is_thought or message.startswith("["):
-            self.add_thought(message)
+            self.add_activity(message)
             return
         
-        # Otherwise, finalize any pending thoughts and show the message normally
-        self.finalize_thoughts()
+        # Otherwise, finalize any pending activity and show the message normally
+        self.finalize_activity()
         
         # Cyberpunk Palette
         ACCENT_CYAN = "#00f3ff"   # Agent
@@ -102,7 +102,7 @@ class LogViewer(VerticalScroll):
             border_style = "bold orange1"
             title = "[bold orange1]Retry Analysis[/]"
             content = message
-        elif level == "info":
+        elif level == "info" or level == "agent":
             if message.startswith("💬 You:"):
                 # User Message
                 border_style = ACCENT_PURPLE
@@ -124,9 +124,6 @@ class LogViewer(VerticalScroll):
             border_style = "bold orange1"
             title = "[bold orange1]Warning[/]"
             content = message
-        elif level == "agent":
-            # Skip agent node names
-            return
         else:
             border_style = "dim"
             content = message

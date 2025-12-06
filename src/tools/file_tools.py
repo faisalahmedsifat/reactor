@@ -175,6 +175,7 @@ async def read_file_content(file_path: str, max_lines: int = 500) -> Dict:
 async def analyze_project_structure(directory: str = ".") -> Dict:
     """
     Analyze project structure to infer project type and key files.
+    Performs a depth-limited scan to find configuration and entry points.
     
     Args:
         directory: Directory to analyze (default: current directory)
@@ -187,67 +188,103 @@ async def analyze_project_structure(directory: str = ".") -> Dict:
     if not directory_path.exists():
         return {"error": f"Directory not found: {directory}"}
     
-    key_files = {}
-    project_types = []
+    # Configuration
+    MAX_DEPTH = 3
+    IGNORE_DIRS = {
+        'node_modules', '.git', '.venv', 'venv', '__pycache__', 
+        'dist', 'build', '.next', '.idea', '.vscode'
+    }
     
-    # Check for Python project indicators
-    python_indicators = {
+    # Results containers
+    project_indicators = []
+    config_files = {}
+    entry_points = []
+    documentation = []
+    source_structure = {}  # Summary of source folders
+    
+    # Known patterns
+    TYPE_INDICATORS = {
         'pyproject.toml': 'Python (Poetry)',
         'requirements.txt': 'Python (pip)',
         'setup.py': 'Python (setuptools)',
         'Pipfile': 'Python (Pipenv)',
-        'environment.yml': 'Python (Conda)'
-    }
-    
-    # Check for Node.js/TypeScript project indicators
-    node_indicators = {
-        'package.json': 'Node.js/TypeScript',
+        'package.json': 'Node.js/JS',
         'tsconfig.json': 'TypeScript',
-        'yarn.lock': 'Node.js (Yarn)',
-        'pnpm-lock.yaml': 'Node.js (pnpm)'
-    }
-    
-    # Check for other project types
-    other_indicators = {
-        'Cargo.toml': 'Rust',
         'go.mod': 'Go',
+        'Cargo.toml': 'Rust',
         'Gemfile': 'Ruby',
         'composer.json': 'PHP',
         'pom.xml': 'Java (Maven)',
-        'build.gradle': 'Java/Kotlin (Gradle)'
+        'build.gradle': 'Java/Kotlin (Gradle)',
+        'Dockerfile': 'Docker',
+        'docker-compose.yml': 'Docker Compose'
     }
     
-    all_indicators = {**python_indicators, **node_indicators, **other_indicators}
+    ENTRY_PATTERNS = {
+        'main.py', 'app.py', 'wsgi.py', 'asgi.py', 'manage.py',
+        'index.js', 'server.js', 'app.js',
+        'index.ts', 'server.ts', 'main.go', 'main.rs'
+    }
+
+    # Walk directory
+    try:
+        base_depth = len(directory_path.parts)
+        
+        for root, dirs, files in os.walk(directory_path):
+            root_path = Path(root)
+            current_depth = len(root_path.parts) - base_depth
+            
+            # Modify dirs in-place to prune ignored directories
+            dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+            
+            if current_depth > MAX_DEPTH:
+                # Clear dirs to stop recursion but process files in current dir (if strict depth needed we'd skip)
+                # Actually os.walk continues, so we manually skip deep levels
+                del dirs[:]
+                continue
+                
+            rel_path = root_path.relative_to(directory_path)
+            
+            # Record structure for top 2 levels
+            if current_depth <= 2 and current_depth > 0:
+                parent = str(rel_path.parent) if current_depth > 1 else "."
+                if parent not in source_structure:
+                    source_structure[parent] = []
+                source_structure[parent].append(rel_path.name + "/")
+
+            for file in files:
+                file_path = root_path / file
+                rel_file_path = str(file_path.relative_to(directory_path))
+                
+                # Check for Indicators
+                if file in TYPE_INDICATORS:
+                    project_indicators.append(TYPE_INDICATORS[file])
+                    config_files[file] = rel_file_path
+                
+                # Check for Entry Points
+                if file in ENTRY_PATTERNS:
+                    entry_points.append(rel_file_path)
+                
+                # Check for Documentation
+                if file.lower().startswith('readme'):
+                    documentation.append(rel_file_path)
+                    
+    except Exception as e:
+        return {"error": f"Error scanning directory: {str(e)}"}
     
-    # Check for key files
-    for filename, project_type in all_indicators.items():
-        file_path = directory_path / filename
-        if file_path.exists():
-            key_files[filename] = str(file_path)
-            if project_type not in project_types:
-                project_types.append(project_type)
-    
-    # Look for README
-    readme_files = []
-    for readme_name in ['README.md', 'README.rst', 'README.txt', 'README']:
-        readme_path = directory_path / readme_name
-        if readme_path.exists():
-            readme_files.append(str(readme_path))
-    
-    # Look for main entry points
-    entry_points = []
-    for entry_name in ['main.py', 'app.py', 'index.js', 'index.ts', 'src/main.py', 'src/index.ts']:
-        entry_path = directory_path / entry_name
-        if entry_path.exists():
-            entry_points.append(str(entry_path))
-    
+    # Deduplicate project types
+    project_types = list(set(project_indicators))
+    if not project_types:
+        project_types = ["Unknown / Generic"]
+        
     return {
         "directory": str(directory_path),
-        "project_types": project_types if project_types else ["Unknown"],
-        "key_files": key_files,
-        "readme_files": readme_files,
+        "project_types": project_types,
+        "key_config_files": config_files,
         "entry_points": entry_points,
-        "has_git": (directory_path / '.git').exists()
+        "documentation": documentation,
+        "structure_summary": source_structure,
+        "scan_depth": MAX_DEPTH
     }
 
 

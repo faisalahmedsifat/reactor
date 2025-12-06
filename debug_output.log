@@ -1,0 +1,31 @@
+🚀 Starting Debug Run...
+
+--- NODE: agent ---
+Type: HumanMessage
+Content: 'list the files in src directory'
+Type: AIMessage
+Content: ''
+Tool Calls:
+[{'args': {'directory': 'src'},
+  'id': '76458b0d-7310-4fef-8b27-0e9432e8c27a',
+  'name': 'list_project_files',
+  'type': 'tool_call'}]
+
+--- NODE: tools ---
+Type: ToolMessage
+Content: '{"directory": "/home/faisal/Workspace/Dev/Personal/reactor/src", "total_files": 33, "total_directories": 5, "files_by_extension": {".py": 32, ".tcss": 1}, "files_by_category": {"Python": ["utils.py", "__init__.py", "llm/__init__.py", "llm/base.py", "llm/factory.py", "llm/langchain_client.py", "tui/bridge.py", "tui/__init__.py", "tui/widgets.py", "tui/state.py", "tui/widgets/agent_ui.py", "tui/widgets/__init__.py", "tui/widgets/file_tree.py", "tui/widgets/modals.py", "tui/widgets/code_viewer.py", "tui/widgets/chat_widgets.py", "tui/app.py", "graph_simple.py", "state.py", "models.py", "main.py", "tools/file_tools.py", "tools/__init__.py", "tools/shell_tools.py", "graph.py", "nodes/__init__.py", "nodes/llm_nodes.py", "nodes/communication_nodes.py", "nodes/refinement_nodes.py", "nodes/approval_nodes.py", "nodes/execution_nodes.py", "nodes/analysis_nodes.py"], "Styles": ["tui/styles.tcss"]}, "all_files": ["utils.py", "__init__.py", "llm/__init__.py", "llm/base.py", "llm/factory.py", "llm/langchain_client.py", "tui/bridge.py", "tui/__init__.py", "tui/widgets.py", "tui/state.py", "tui/widgets/agent_ui.py", "tui/widgets/__init__.py", "tui/widgets/file_tree.py", "tui/widgets/modals.py", "tui/widgets/code_viewer.py", "tui/widgets/chat_widgets.py", "tui/styles.tcss", "tui/app.py", "graph_simple.py", "state.py", "models.py", "main.py", "tools/file_tools.py", "tools/__init__.py", "tools/shell_tools.py", "graph.py", "nodes/__init__.py", "nodes/llm_nodes.py", "nodes/communication_nodes.py", "nodes/refinement_nodes.py", "nodes/approval_nodes.py", "nodes/execution_nodes.py", "nodes/analysis_nodes.py"]}'
+
+--- NODE: agent ---
+Type: HumanMessage
+Content: 'list the files in src directory'
+Type: AIMessage
+Content: ''
+Tool Calls:
+[{'args': {'directory': 'src'},
+  'id': '76458b0d-7310-4fef-8b27-0e9432e8c27a',
+  'name': 'list_project_files',
+  'type': 'tool_call'}]
+Type: ToolMessage
+Content: '{"directory": "/home/faisal/Workspace/Dev/Personal/reactor/src", "total_files": 33, "total_directories": 5, "files_by_extension": {".py": 32, ".tcss": 1}, "files_by_category": {"Python": ["utils.py", "__init__.py", "llm/__init__.py", "llm/base.py", "llm/factory.py", "llm/langchain_client.py", "tui/bridge.py", "tui/__init__.py", "tui/widgets.py", "tui/state.py", "tui/widgets/agent_ui.py", "tui/widgets/__init__.py", "tui/widgets/file_tree.py", "tui/widgets/modals.py", "tui/widgets/code_viewer.py", "tui/widgets/chat_widgets.py", "tui/app.py", "graph_simple.py", "state.py", "models.py", "main.py", "tools/file_tools.py", "tools/__init__.py", "tools/shell_tools.py", "graph.py", "nodes/__init__.py", "nodes/llm_nodes.py", "nodes/communication_nodes.py", "nodes/refinement_nodes.py", "nodes/approval_nodes.py", "nodes/execution_nodes.py", "nodes/analysis_nodes.py"], "Styles": ["tui/styles.tcss"]}, "all_files": ["utils.py", "__init__.py", "llm/__init__.py", "llm/base.py", "llm/factory.py", "llm/langchain_client.py", "tui/bridge.py", "tui/__init__.py", "tui/widgets.py", "tui/state.py", "tui/widgets/agent_ui.py", "tui/widgets/__init__.py", "tui/widgets/file_tree.py", "tui/widgets/modals.py", "tui/widgets/code_viewer.py", "tui/widgets/chat_widgets.py", "tui/styles.tcss", "tui/app.py", "graph_simple.py", "state.py", "models.py", "main.py", "tools/file_tools.py", "tools/__init__.py", "tools/shell_tools.py", "graph.py", "nodes/__init__.py", "nodes/llm_nodes.py", "nodes/communication_nodes.py", "nodes/refinement_nodes.py", "nodes/approval_nodes.py", "nodes/execution_nodes.py", "nodes/analysis_nodes.py"]}'
+Type: AIMessage
+Content: [{'type': 'text', 'text': 'Here are the files in the `src` directory:\n\n**Python Files:**\n*   `utils.py`\n*   `__init__.py`\n*   `llm/__init__.py`\n*   `llm/base.py`\n*   `llm/factory.py`\n*   `llm/langchain_client.py`\n*   `tui/bridge.py`\n*   `tui/__init__.py`\n*   `tui/widgets.py`\n*   `tui/state.py`\n*   `tui/widgets/agent_ui.py`\n*   `tui/widgets/__init__.py`\n*   `tui/widgets/file_tree.py`\n*   `tui/widgets/modals.py`\n*   `tui/widgets/code_viewer.py`\n*   `tui/widgets/chat_widgets.py`\n*   `tui/app.py`\n*   `graph_simple.py`\n*   `state.py`\n*   `models.py`\n*   `main.py`\n*   `tools/file_tools.py`\n*   `tools/__init__.py`\n*   `tools/shell_tools.py`\n*   `graph.py`\n*   `nodes/__init__.py`\n*   `nodes/llm_nodes.py`\n*   `nodes/communication_nodes.py`\n*   `nodes/refinement_nodes.py`\n*   `nodes/approval_nodes.py`\n*   `nodes/execution_nodes.py`\n*   `nodes/analysis_nodes.py`\n\n**Styles Files:**\n*   `tui/styles.tcss`\n\nThere are a total of 33 files and 5 directories within `src`.', 'extras': {'signature': 'CtgBAXLI2nxCn8g9Rriq70B3cy4cS8bzoDaPUV7fmeN+0z76AYzMPy2+j+Cxfy9mV6Ups8hD7T1MtESzjw2KaMjoCK6w5clS8s7ND06CduI+soSmHfAyDj0ngaSfcOrJRZvosbEj22AOO+dlnfwG92lFRKnGoyENnE8PpuV64uOlQK9/pt8UXN+q3dRnnFhOUSG2FS7ijbWnZ/Ct9500uD6KY4vQEVwGZmVUwtR4MmWP/HpsBgPqmk/vjH9XQwz4dB/V7NurL5zpmn0FfLQ8st24AXREywk1Y18G'}}]
