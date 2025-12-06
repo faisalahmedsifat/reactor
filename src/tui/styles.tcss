@@ -278,13 +278,26 @@ StateIndicator {
 }
 
 /* Status Bar / Footer */
-StatusBar {
-    dock: bottom;
+/* Message Container & Copy Button */
+.message-container {
+    height: auto;
+    margin-bottom: 1;
+}
+
+.copy-btn {
+    dock: right;
+    min-width: 10;
     height: 1;
     background: $bg-tertiary;
-    color: $accent-cyan;
-    content-align: left middle;
-    padding: 0 1;
+    color: $text-secondary;
+    border: none;
+    margin-top: 0;
+    margin-right: 2;
+}
+
+.copy-btn:hover {
+    background: $accent-cyan;
+    color: $bg-primary;
 }
 
 /* Collapsible Widget Styles */

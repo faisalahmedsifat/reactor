@@ -23,8 +23,23 @@ def main():
     # Check for CLI flag
     if "--cli" in sys.argv:
         # Run CLI version
-        from main_cli import main as cli_main
-        return asyncio.run(cli_main())
+        # Run CLI version
+        from src.graph_simple import run_simple_agent
+        
+        async def cli_loop():
+            print("🤖 Reactive Shell Agent (CLI Mode)")
+            while True:
+                try:
+                    user_input = input("\n> ")
+                    if user_input.lower() in ["exit", "quit"]:
+                        break
+                    if not user_input.strip():
+                        continue
+                    await run_simple_agent(user_input)
+                except KeyboardInterrupt:
+                    break
+        
+        return asyncio.run(cli_loop())
     else:
         # Run TUI version (default)
         from src.tui.app import run_tui

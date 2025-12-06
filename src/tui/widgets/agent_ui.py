@@ -140,6 +140,7 @@ class LogViewer(VerticalScroll):
         md = RichMarkdown(content)
         
         # Create Panel and mount as Static widget
+        # Needs to be created before container
         panel_widget = Static()
         panel_widget.update(Panel(
             md,
@@ -150,9 +151,30 @@ class LogViewer(VerticalScroll):
             style=f"white on {BG_TERTIARY}",
             expand=True
         ))
+
+        # Add copy button (small, unobtrusive)
+        copy_btn = Button("Copy", variant="default", classes="copy-btn")
+        copy_btn.tooltip = "Copy message to clipboard"
+        # Store content for copying
+        copy_btn.copy_content = content
         
-        self.mount(panel_widget)
+        # Create Container for message and copy button
+        # Pass children directly to constructor to avoid MountError
+        container = Container(panel_widget, copy_btn, classes="message-container")
+        
+        self.mount(container)
         self.scroll_end(animate=False)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle copy button click"""
+        if "copy-btn" in event.button.classes and hasattr(event.button, "copy_content"):
+            try:
+                # Try Textual's clipboard API
+                self.app.copy_to_clipboard(event.button.copy_content)
+                self.notify("Copied to clipboard!", title="Success", severity="information")
+            except Exception:
+                # Fallback
+                self.notify("Clipboard not supported. Use Shift+Click to select.", title="Info", severity="warning")
 
 class LiveExecutionPanel(Static):
     """Panel to show live output of running commands"""
