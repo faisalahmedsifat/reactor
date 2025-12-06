@@ -21,7 +21,7 @@ dependencies = [
 packages = [{include = "src"}]
 
 [tool.poetry.scripts]
-reactor = "src.cli:main"
+reactor = "src.main:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
