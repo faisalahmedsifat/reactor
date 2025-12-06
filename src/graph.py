@@ -104,6 +104,10 @@ def create_complete_shell_agent():
         interrupt_after=[]
     )
     
+    # TODO: Save the graph as a PNG
+    image = compiled.get_graph().draw_mermaid_png()
+    with open("shell_agent_graph.png", "wb") as f:
+        f.write(image)
     return compiled
 
 
