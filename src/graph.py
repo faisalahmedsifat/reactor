@@ -151,9 +151,9 @@ def create_complete_shell_agent():
         image = compiled.get_graph().draw_mermaid_png()
         with open("shell_agent_graph.png", "wb") as f:
             f.write(image)
-    except Exception as e:
+    except Exception:
         # Silently ignore graph rendering errors (API might be down)
-        print(f"Note: Could not generate graph PNG: {e}")
+        pass
     
     return compiled
 
