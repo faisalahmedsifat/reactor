@@ -1,0 +1,251 @@
+"""
+src/tools/file_tools.py
+
+File reading and analysis tools (non-shell-based).
+Used for analytical tasks like "analyze this project".
+"""
+
+import os
+from pathlib import Path
+from typing import Dict, List, Optional
+from langchain_core.tools import tool
+
+
+@tool
+async def list_project_files(directory: str = ".", max_depth: int = 3, ignore_patterns: Optional[List[str]] = None) -> Dict:
+    """
+    Recursively list all files in a directory.
+    Returns structured file tree with categorization by extension.
+    
+    Args:
+        directory: Directory to analyze (default: current directory)
+        max_depth: Maximum depth to traverse (default: 3)
+        ignore_patterns: Patterns to ignore (default: common ignore patterns)
+    
+    Returns:
+        Dictionary with file counts, categories, and paths
+    """
+    if ignore_patterns is None:
+        ignore_patterns = [
+            '__pycache__', 'node_modules', '.git', '.venv', 'venv',
+            'dist', 'build', '.next', '.pytest_cache', 'coverage',
+            '*.pyc', '.env'
+        ]
+    
+    directory_path = Path(directory).resolve()
+    
+    if not directory_path.exists():
+        return {"error": f"Directory not found: {directory}"}
+    
+    files_by_extension = {}
+    all_files = []
+    total_files = 0
+    total_dirs = 0
+    
+    def should_ignore(path: Path) -> bool:
+        """Check if path should be ignored"""
+        for pattern in ignore_patterns:
+            if pattern.startswith('*'):
+                # Extension pattern
+                if str(path).endswith(pattern[1:]):
+                    return True
+            else:
+                # Directory/file name pattern
+                if pattern in path.parts:
+                    return True
+        return False
+    
+    def walk_directory(path: Path, current_depth: int = 0):
+        nonlocal total_files, total_dirs
+        
+        if current_depth > max_depth:
+            return
+        
+        try:
+            for item in path.iterdir():
+                if should_ignore(item):
+                    continue
+                
+                if item.is_file():
+                    total_files += 1
+                    ext = item.suffix or "(no extension)"
+                    relative_path = str(item.relative_to(directory_path))
+                    
+                    if ext not in files_by_extension:
+                        files_by_extension[ext] = []
+                    files_by_extension[ext].append(relative_path)
+                    all_files.append(relative_path)
+                    
+                elif item.is_dir():
+                    total_dirs += 1
+                    walk_directory(item, current_depth + 1)
+        except PermissionError:
+            pass  # Skip directories we can't access
+    
+    walk_directory(directory_path)
+    
+    # Categorize extensions
+    categories = {
+        "Python": [f for ext in ['.py', '.pyx', '.pyd'] for f in files_by_extension.get(ext, [])],
+        "TypeScript/JavaScript": [f for ext in ['.ts', '.tsx', '.js', '.jsx'] for f in files_by_extension.get(ext, [])],
+        "Configuration": [f for ext in ['.json', '.yaml', '.yml', '.toml', '.ini', '.cfg'] for f in files_by_extension.get(ext, [])],
+        "Documentation": [f for ext in ['.md', '.rst', '.txt'] for f in files_by_extension.get(ext, [])],
+        "Styles": [f for ext in ['.css', '.scss', '.sass', '.less', '.tcss'] for f in files_by_extension.get(ext, [])],
+        "Other": []
+    }
+    
+    # Add files that don't fit categories to "Other"
+    categorized_files = set()
+    for files in categories.values():
+        categorized_files.update(files)
+    
+    categories["Other"] = [f for f in all_files if f not in categorized_files]
+    
+    return {
+        "directory": str(directory_path),
+        "total_files": total_files,
+        "total_directories": total_dirs,
+        "files_by_extension": {k: len(v) for k, v in files_by_extension.items()},
+        "files_by_category": {k: v for k, v in categories.items() if v},
+        "all_files": all_files[:100]  # Limit to first 100 for output size
+    }
+
+
+@tool
+async def read_file_content(file_path: str, max_lines: int = 500) -> Dict:
+    """
+    Read content of a text file.
+    
+    Args:
+        file_path: Path to file (relative or absolute)
+        max_lines: Maximum lines to read (default: 500)
+    
+    Returns:
+        Dictionary with file content and metadata
+    """
+    try:
+        path = Path(file_path).resolve()
+        
+        if not path.exists():
+            return {"error": f"File not found: {file_path}"}
+        
+        if not path.is_file():
+            return {"error": f"Not a file: {file_path}"}
+        
+        # Check file size (limit to 1MB for safety)
+        file_size = path.stat().st_size
+        if file_size > 1_000_000:
+            return {
+                "error": f"File too large: {file_size} bytes (max 1MB)",
+                "file_path": str(path),
+                "size_bytes": file_size
+            }
+        
+        # Read file content
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                
+                if len(lines) > max_lines:
+                    content = ''.join(lines[:max_lines])
+                    truncated = True
+                else:
+                    content = ''.join(lines)
+                    truncated = False
+                
+                return {
+                    "file_path": str(path),
+                    "size_bytes": file_size,
+                    "total_lines": len(lines),
+                    "lines_returned": min(len(lines), max_lines),
+                    "truncated": truncated,
+                    "content": content,
+                    "extension": path.suffix
+                }
+        except UnicodeDecodeError:
+            return {
+                "error": "File is not a text file (binary content)",
+                "file_path": str(path)
+            }
+    except Exception as e:
+        return {"error": f"Error reading file: {str(e)}"}
+
+
+@tool
+async def analyze_project_structure(directory: str = ".") -> Dict:
+    """
+    Analyze project structure to infer project type and key files.
+    
+    Args:
+        directory: Directory to analyze (default: current directory)
+    
+    Returns:
+        Dictionary with project type, entry points, and key configuration files
+    """
+    directory_path = Path(directory).resolve()
+    
+    if not directory_path.exists():
+        return {"error": f"Directory not found: {directory}"}
+    
+    key_files = {}
+    project_types = []
+    
+    # Check for Python project indicators
+    python_indicators = {
+        'pyproject.toml': 'Python (Poetry)',
+        'requirements.txt': 'Python (pip)',
+        'setup.py': 'Python (setuptools)',
+        'Pipfile': 'Python (Pipenv)',
+        'environment.yml': 'Python (Conda)'
+    }
+    
+    # Check for Node.js/TypeScript project indicators
+    node_indicators = {
+        'package.json': 'Node.js/TypeScript',
+        'tsconfig.json': 'TypeScript',
+        'yarn.lock': 'Node.js (Yarn)',
+        'pnpm-lock.yaml': 'Node.js (pnpm)'
+    }
+    
+    # Check for other project types
+    other_indicators = {
+        'Cargo.toml': 'Rust',
+        'go.mod': 'Go',
+        'Gemfile': 'Ruby',
+        'composer.json': 'PHP',
+        'pom.xml': 'Java (Maven)',
+        'build.gradle': 'Java/Kotlin (Gradle)'
+    }
+    
+    all_indicators = {**python_indicators, **node_indicators, **other_indicators}
+    
+    # Check for key files
+    for filename, project_type in all_indicators.items():
+        file_path = directory_path / filename
+        if file_path.exists():
+            key_files[filename] = str(file_path)
+            if project_type not in project_types:
+                project_types.append(project_type)
+    
+    # Look for README
+    readme_files = []
+    for readme_name in ['README.md', 'README.rst', 'README.txt', 'README']:
+        readme_path = directory_path / readme_name
+        if readme_path.exists():
+            readme_files.append(str(readme_path))
+    
+    # Look for main entry points
+    entry_points = []
+    for entry_name in ['main.py', 'app.py', 'index.js', 'index.ts', 'src/main.py', 'src/index.ts']:
+        entry_path = directory_path / entry_name
+        if entry_path.exists():
+            entry_points.append(str(entry_path))
+    
+    return {
+        "directory": str(directory_path),
+        "project_types": project_types if project_types else ["Unknown"],
+        "key_files": key_files,
+        "readme_files": readme_files,
+        "entry_points": entry_points,
+        "has_git": (directory_path / '.git').exists()
+    }

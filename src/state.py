@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, Optional, List, Sequence
+from typing import TypedDict, Annotated, Optional, List, Sequence, Literal, Dict, Any
 from langgraph.graph import add_messages
 from langchain_core.messages import BaseMessage
 from src.models import CommandIntent, ExecutionPlan, ExecutionResult
@@ -16,3 +16,7 @@ class ShellAgentState(TypedDict):
     requires_approval: bool
     approved: bool
     error: Optional[str]
+    execution_mode: Literal["sequential", "parallel"]  # New: execution mode toggle
+    max_retries: int  # New: configurable retry limit
+    analysis_data: Optional[Dict[str, Any]]  # New: for analytical workflow
+

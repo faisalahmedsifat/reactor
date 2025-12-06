@@ -132,6 +132,25 @@ LogViewer {
     padding: 1;
 }
 
+/* Dashboard Layout (Column 2 internals) */
+#dashboard-container {
+    height: 100%;
+    layout: vertical;
+}
+
+#dashboard-header {
+    height: auto;
+    dock: top;
+    background: $bg-secondary;
+    padding: 0 1;
+}
+
+#log-viewer {
+    height: 1fr;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
 /* Agent Input */
 #input-container {
     height: auto;

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Literal
 from enum import Enum
 from pathlib import Path
 
@@ -24,6 +24,7 @@ class TUIState:
     
     # Agent
     agent_status: AgentState = AgentState.IDLE
+    execution_mode: Literal["sequential", "parallel"] = "sequential"  # NEW: execution mode toggle
     
     # Search
     search_query: str = ""

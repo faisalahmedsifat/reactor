@@ -1,7 +1,8 @@
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical, Horizontal, VerticalScroll
-from textual.widgets import Static, RichLog, Label, Input, Tree, Markdown
+from textual.widgets import Static, RichLog, Label, Input, Tree, Markdown, Button
 from textual.reactive import reactive
+from textual.message import Message
 from rich.text import Text
 from rich.syntax import Syntax
 from rich.spinner import Spinner
@@ -25,12 +26,32 @@ class LogViewer(VerticalScroll):
         # Cyberpunk Palette
         ACCENT_CYAN = "#00f3ff"   # Agent
         ACCENT_PURPLE = "#bc13fe" # User
+        ACCENT_GOLD = "#ffd700"   # Understanding
+        ACCENT_BLUE = "#4169e1"   # Plan
+        ACCENT_GREEN = "#32cd32"  # Progress
         BG_TERTIARY = "#11112b"   # Message BG
 
         border_style = "dim"
         title = None
         
-        if level == "info":
+        # Special formatting for communication nodes
+        if message.startswith("💡"):
+            border_style = ACCENT_GOLD
+            title = "[bold gold1]🧠 Understanding[/]"
+            content = message.replace("💡 **Understanding Your Request**", "").strip()
+        elif message.startswith("📋"):
+            border_style = ACCENT_BLUE
+            title = "[bold blue]📋 Execution Plan[/]"
+            content = message.replace("📋 **Execution Plan**", "").strip()
+        elif message.startswith("⚡"):
+            border_style = ACCENT_GREEN
+            title = "[bold green]⚡ Progress[/]"
+            content = message.replace("⚡ **Command Progress**", "").strip()
+        elif message.startswith("🔄"):
+            border_style = "bold orange1"
+            title = "[bold orange1]🔄 Retry Analysis[/]"
+            content = message
+        elif level == "info":
             if message.startswith("💬 You:"):
                 # User Message
                 border_style = ACCENT_PURPLE
@@ -47,6 +68,10 @@ class LogViewer(VerticalScroll):
         elif level == "error":
             border_style = "bold red"
             title = "[bold red]Error[/]"
+            content = message
+        elif level == "warning":
+            border_style = "bold orange1"
+            title = "[bold orange1]Warning[/]"
             content = message
         else:
             border_style = "dim"
@@ -79,13 +104,13 @@ class LiveExecutionPanel(Static):
         """Update panel content from an ExecutionResult."""
         from rich.text import Text
 
-        header = Text(f"CMD: {result.command}\nEXIT CODE: {result.exit_code}\n", style="bold")
+        header = Text(f"CMD: {result.command}\\nEXIT CODE: {result.exit_code}\\n", style="bold")
         
-        stdout_header = Text("\n--- STDOUT ---\n", style="bold green")
+        stdout_header = Text("\\n--- STDOUT ---\\n", style="bold green")
         # FIX: folding overflow to prevent horizontal scroll
         stdout_content = Text(result.stdout if result.stdout.strip() else "[empty]", style="green", overflow="fold", no_wrap=False)
 
-        stderr_header = Text("\n--- STDERR ---\n", style="bold red")
+        stderr_header = Text("\\n--- STDERR ---\\n", style="bold red")
         stderr_content = Text(result.stderr if result.stderr.strip() else "[empty]", style="red", overflow="fold", no_wrap=False)
 
         self.update(Text.assemble(header, stdout_header, stdout_content, stderr_header, stderr_content))
@@ -196,9 +221,36 @@ class ResultsPanel(Static):
 class AgentDashboard(Container):
     """Main dashboard for Agent interaction (Chat & Input)"""
     
+    class ExecutionModeToggled(Message):
+        """Message sent when execution mode is toggled"""
+        def __init__(self, mode: str):
+            self.mode = mode
+            super().__init__()
+    
+    execution_mode: reactive[str] = reactive("sequential")
+    
     def compose(self) -> ComposeResult:
         with Vertical(id="dashboard-container"):
-            yield StateIndicator(id="agent-state")
+            # Header with execution mode toggle
+            with Horizontal(id="dashboard-header"):
+                yield StateIndicator(id="agent-state")
+                yield Button("⏩ Sequential", id="mode-toggle", variant="primary")
             yield LogViewer(id="log-viewer")
             with Container(id="input-container"):
                 yield Input(placeholder="Ask the agent...", id="agent-input")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle execution mode toggle"""
+        if event.button.id == "mode-toggle":
+            # Toggle mode
+            if self.execution_mode == "sequential":
+                self.execution_mode = "parallel"
+                event.button.label = "⚡ Parallel"
+                event.button.variant = "success"
+            else:
+                self.execution_mode = "sequential"
+                event.button.label = "⏩ Sequential"
+                event.button.variant = "primary"
+            
+            # Post message to app
+            self.post_message(self.ExecutionModeToggled(self.execution_mode))

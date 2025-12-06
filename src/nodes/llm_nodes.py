@@ -46,13 +46,18 @@ async def llm_parse_intent_node(state: ShellAgentState) -> ShellAgentState:
     - Constraints or safety requirements
     - Your confidence level (0-1)
     
+    IMPORTANT: Determine if this is an ANALYTICAL task or an EXECUTION task:
+    - ANALYTICAL: User wants to understand/analyze/review code or project (use categories: analysis, information_gathering, code_review)
+    - EXECUTION: User wants to run commands, install packages, modify files, etc. (use other categories)
+    
     Output ONLY valid JSON matching this schema:
     {
       "task_description": "clear description of what user wants",
-      "category": "file_operation|environment_setup|package_management|git_operation|system_info|process_management|network_operation|other",
+      "category": "analysis|information_gathering|code_review|file_operation|environment_setup|package_management|git_operation|system_info|process_management|network_operation|other",
       "key_entities": ["list", "of", "relevant", "items"],
       "constraints": ["any", "safety", "or", "requirement", "constraints"],
-      "user_intent_confidence": 0.9
+      "user_intent_confidence": 0.9,
+      "is_analytical": true_or_false
     }"""
 
     user_prompt = f"""Request: "{user_input}"

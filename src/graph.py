@@ -14,10 +14,21 @@ from src.nodes.llm_nodes import (
     llm_analyze_error_node,
     llm_reflection_node
 )
+from src.nodes.communication_nodes import (
+    communicate_understanding_node,
+    communicate_plan_node,
+    stream_progress_node
+)
+from src.nodes.analysis_nodes import (
+    discover_files_node,
+    read_relevant_files_node,
+    analyze_and_summarize_node
+)
 from src.nodes.approval_nodes import request_approval_node
 from src.nodes.refinement_nodes import refine_command_node
 from src.tools import shell_tools
 from src.state import ShellAgentState
+from src.models import RiskLevel
 from langchain_core.messages import HumanMessage, AIMessage
 
 
@@ -37,6 +48,16 @@ def create_complete_shell_agent():
     workflow.add_node("llm_analyze_error", llm_analyze_error_node)
     workflow.add_node("llm_reflection", llm_reflection_node)
     
+    # Communication nodes (NEW: conversational agent)
+    workflow.add_node("communicate_understanding", communicate_understanding_node)
+    workflow.add_node("communicate_plan", communicate_plan_node)
+    workflow.add_node("stream_progress", stream_progress_node)
+    
+    # Analysis nodes (NEW: analytical workflow)
+    workflow.add_node("discover_files", discover_files_node)
+    workflow.add_node("read_relevant_files", read_relevant_files_node)
+    workflow.add_node("analyze_and_summarize", analyze_and_summarize_node)
+    
     # Execution nodes
     workflow.add_node("refine_command", refine_command_node)
     workflow.add_node("validate_safety", validate_safety_node)
@@ -48,10 +69,28 @@ def create_complete_shell_agent():
     
     workflow.set_entry_point("gather_system_info")
     
-    # Linear flow for preparation
+    # Linear flow for preparation WITH COMMUNICATION
     workflow.add_edge("gather_system_info", "llm_parse_intent")
-    workflow.add_edge("llm_parse_intent", "llm_generate_plan")
-    workflow.add_edge("llm_generate_plan", "refine_command")
+    workflow.add_edge("llm_parse_intent", "communicate_understanding")  # NEW: Communicate first!
+    
+    # ROUTING: Analytical vs Execution flow
+    workflow.add_conditional_edges(
+        "communicate_understanding",
+        route_after_understanding,
+        {
+            "analytical_flow": "discover_files",  # NEW: Analytical path
+            "execution_flow": "llm_generate_plan"  # Original execution path
+        }
+    )
+    
+    # === ANALYTICAL FLOW ===
+    workflow.add_edge("discover_files", "read_relevant_files")
+    workflow.add_edge("read_relevant_files", "analyze_and_summarize")
+    workflow.add_edge("analyze_and_summarize", "summarize")  # Skip to final summary
+    
+    # === EXECUTION FLOW ===
+    workflow.add_edge("llm_generate_plan", "communicate_plan")  # NEW: Show plan before execution
+    workflow.add_edge("communicate_plan", "refine_command")
     workflow.add_edge("refine_command", "validate_safety")
     
     # Conditional: Safety check
@@ -67,9 +106,12 @@ def create_complete_shell_agent():
     # After approval, execute
     workflow.add_edge("request_approval", "execute_command")
     
-    # Conditional: Execution result
+    # NEW: Stream progress after each execution
+    workflow.add_edge("execute_command", "stream_progress")
+    
+    # Conditional: Execution result (FROM stream_progress now)
     workflow.add_conditional_edges(
-        "execute_command",
+        "stream_progress",
         route_after_execution,
         {
             "llm_analyze_error": "llm_analyze_error",  # Use LLM analysis!
@@ -104,17 +146,52 @@ def create_complete_shell_agent():
         interrupt_after=[]
     )
     
-    # TODO: Save the graph as a PNG
-    image = compiled.get_graph().draw_mermaid_png()
-    with open("shell_agent_graph.png", "wb") as f:
-        f.write(image)
+    # Save the graph as a PNG (optional, don't fail if it doesn't work)
+    try:
+        image = compiled.get_graph().draw_mermaid_png()
+        with open("shell_agent_graph.png", "wb") as f:
+            f.write(image)
+    except Exception as e:
+        # Silently ignore graph rendering errors (API might be down)
+        print(f"Note: Could not generate graph PNG: {e}")
+    
     return compiled
 
 
 # ============= ROUTING FUNCTIONS =============
 
+def route_after_understanding(state: ShellAgentState) -> Literal["analytical_flow", "execution_flow"]:
+    """Route to analytical or execution flow based on intent"""
+    intent = state["intent"]
+    
+    if not intent:
+        return "execution_flow"  # Default to execution
+    
+    # Check if analytical
+    if intent.is_analytical or intent.category in ["analysis", "information_gathering", "code_review"]:
+        return "analytical_flow"
+    
+    return "execution_flow"
+
+
 def route_after_validation(state: ShellAgentState) -> Literal["request_approval", "execute_command"]:
-    """Route after safety validation"""
+    """Route after safety validation - AUTO-SKIP APPROVAL FOR SAFE COMMANDS"""
+    plan = state["execution_plan"]
+    idx = state["current_command_index"]
+    
+    # Check if current command is safe (auto-execute)
+    if idx < len(plan.commands):
+        current_cmd = plan.commands[idx]
+        # Auto-execute if safe risk level
+        if hasattr(current_cmd.risk_level, 'value'):
+            risk = current_cmd.risk_level.value.lower()
+        else:
+            risk = str(current_cmd.risk_level).lower()
+        
+        if risk == "safe":
+            return "execute_command"
+    
+    # Original approval logic for moderate/dangerous commands
     if state["requires_approval"] and not state["approved"]:
         return "request_approval"
     return "execute_command"
@@ -136,16 +213,18 @@ def route_after_execution(state: ShellAgentState) -> Literal["llm_analyze_error"
             return "complete"
         return "next_command"
     
-    # Failure - analyze or give up
-    if state["retry_count"] >= 3:
+    # Failure - analyze or give up (use configurable max_retries)
+    max_retries = state.get("max_retries", 3)
+    if state["retry_count"] >= max_retries:
         return "complete"
     
     return "llm_analyze_error"
 
 
 def route_after_error_analysis(state: ShellAgentState) -> Literal["retry", "give_up"]:
-    """Route after error analysis"""
-    if state["retry_count"] >= 3:
+    """Route after error analysis - use configurable max_retries"""
+    max_retries = state.get("max_retries", 3)
+    if state["retry_count"] >= max_retries:
         return "give_up"
     
     # Check if LLM suggested a retry
@@ -176,7 +255,10 @@ async def run_agent_interactive(user_request: str, thread_id: str = "default"):
         "retry_count": 0,
         "requires_approval": False,
         "approved": False,
-        "error": None
+        "error": None,
+        "execution_mode": "sequential",  # Default to sequential
+        "max_retries": 3,  # Default max retries
+        "analysis_data": None  # For analytical workflow
     }
     
     config = {

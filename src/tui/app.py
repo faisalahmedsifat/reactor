@@ -34,9 +34,11 @@ class StatusBar(Static):
     """Bottom status bar"""
     agent_state = reactive("idle")
     status = reactive("Ready")
+    execution_mode = reactive("sequential")
     
     def render(self):
-        return f" {self.status} | State: {self.agent_state} "
+        mode_display = "⏩ Sequential" if self.execution_mode == "sequential" else "⚡ Parallel"
+        return f" {self.status} | State: {self.agent_state} | Mode: {mode_display} "
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG, filename='debug_tui.log', filemode='w')
@@ -172,8 +174,9 @@ class ShellAgentTUI(App):
             self.query_one(StatusBar).agent_state = "thinking"
             dashboard.query_one(StateIndicator).state = "thinking"
             
-            # Send to bridge
-            self.run_worker(self.bridge.process_request(command), exclusive=True)
+            # Send to bridge with execution mode
+            execution_mode = self.query_one(AgentDashboard).execution_mode
+            self.run_worker(self.bridge.process_request(command, execution_mode), exclusive=True)
 
     def on_directory_tree_file_selected(self, event: FileExplorer.FileSelected) -> None:
         """Handle file selection from sidebar"""
@@ -186,6 +189,14 @@ class ShellAgentTUI(App):
             # Switch to Code tab
             self.query_one(TabbedContent).active = "tab-code"
             logger.info(f"Opened file: {path}")
+    
+    def on_agent_dashboard_execution_mode_toggled(self, message: "AgentDashboard.ExecutionModeToggled") -> None:
+        """Handle execution mode toggle from dashboard"""
+        logger.info(f"Execution mode changed to: {message.mode}")
+        # Update status bar
+        self.query_one(StatusBar).execution_mode = message.mode
+        # Update TUI state
+        self.state.execution_mode = message.mode
     
     async def on_agent_start(self) -> None:
         self.query_one(StatusBar).agent_state = "thinking"
