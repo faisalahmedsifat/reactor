@@ -1,0 +1,266 @@
+# Reactive Shell Agent
+
+An intelligent, conversational shell automation agent powered by LLMs (Large Language Models) with a beautiful Textual TUI interface.
+
+## 🌟 Overview
+
+Reactive Shell Agent is a **dual-mode AI assistant** that can both:
+1. **Analyze Projects** - Intelligently read and understand your codebase without executing commands
+2. **Execute Tasks** - Generate and run shell commands safely with human-in-the-loop approval
+
+The agent features a **conversational interface** that communicates its understanding and plans *before* taking action, not after.
+
+## ✨ Key Features
+
+### 🧠 Dual-Mode Intelligence
+- **Analytical Mode**: Reads files, analyzes project structure, provides intelligent summaries
+- **Execution Mode**: Generates shell commands, validates safety, executes with approval
+
+### 💬 Conversational Interface
+- **Upfront Communication**: Agent explains what it understood before acting
+- **Plan Preview**: Shows execution plan before running any commands
+- **Live Progress**: Streams results as each command executes
+- **Retry Visibility**: Shows error analysis and retry attempts in real-time
+
+### 🎛️ Advanced Controls
+- **Execution Mode Toggle**: Switch between Sequential (⏩) and Parallel (⚡) execution
+- **Auto-approval**: Safe commands execute automatically (configurable)
+- **Configurable Retries**: Set max retry attempts per task
+- **Safety Validation**: Commands are analyzed for risk before execution
+
+### 🎨 Cyberpunk TUI
+- Beautiful 3-column layout with neon aesthetics
+- File explorer, agent chat, and execution panels
+- Color-coded messages with special formatting
+- Real-time execution output and results
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.10+
+- Poetry (for dependency management)
+- An LLM API key (Claude or OpenAI)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/reactive-shell-agent.git
+cd reactive-shell-agent
+
+# Install dependencies
+poetry install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env and add your API keys
+```
+
+### Configuration
+
+Create a `.env` file:
+```env
+LLM_PROVIDER=anthropic  # or openai
+LLM_MODEL=claude-sonnet-4-20250514
+ANTHROPIC_API_KEY=your_key_here
+# or OPENAI_API_KEY=your_key_here
+```
+
+### Run
+
+```bash
+poetry run python main.py
+```
+
+## 📖 Usage
+
+### Analytical Tasks
+
+Ask the agent to analyze or understand:
+
+```
+"analyze this project"
+"what does this codebase do?"
+"explain the project structure"
+"review the code and suggest improvements"
+```
+
+**Agent will**:
+- 🔍 Discover all project files
+- 📖 Read README, config files, and source code
+- 💭 Provide intelligent analysis using LLM
+- ❌ **No shell commands executed**
+
+### Execution Tasks
+
+Ask the agent to do something:
+
+```
+"create a new Python file called test.py"
+"install pytest"
+"list files in current directory"
+"create a venv and install dependencies"
+```
+
+**Agent will**:
+- 💡 Explain what it understood
+- 📋 Show execution plan with risk levels
+- ⚡ Execute commands (with approval for dangerous ones)
+- ✅ Stream progress as work completes
+
+## 🏗️ Architecture
+
+### Workflow Overview
+
+```
+User Input → Parse Intent → Communicate Understanding
+                                      ↓
+                             [Route by Category]
+                                      ↓
+                     ┌────────────────┴─────────────────┐
+                     ↓                                  ↓
+            Analytical Flow                     Execution Flow
+                     ↓                                  ↓
+          Discover Files                      Generate Plan
+                     ↓                                  ↓
+          Read Files                          Communicate Plan
+                     ↓                                  ↓
+          Analyze & Summarize                 Execute Commands
+                     ↓                                  ↓
+                     └────────────────┬─────────────────┘
+                                      ↓
+                                  Summarize → END
+```
+
+### Key Components
+
+- **LangGraph Workflow**: Orchestrates agent nodes and routing
+- **Communication Nodes**: Handle upfront agent communication
+- **Analysis Nodes**: File discovery, reading, and LLM-based analysis
+- **Execution Nodes**: Command generation, validation, execution
+- **Textual TUI**: Beautiful cyberpunk-themed user interface
+- **LLM Integration**: Claude/OpenAI for intent parsing and planning
+
+### Technology Stack
+
+- **LangChain & LangGraph**: Agent orchestration framework
+- **Textual**: Terminal User Interface framework
+- **Pydantic**: Data validation and models
+- **Poetry**: Dependency management
+- **Claude/OpenAI**: LLM providers
+
+## 📁 Project Structure
+
+```
+reactive-shell-agent/
+├── src/
+│   ├── graph.py                 # LangGraph workflow definition
+│   ├── state.py                 # Agent state management
+│   ├── models.py                # Pydantic models
+│   ├── nodes/
+│   │   ├── llm_nodes.py        # LLM reasoning nodes
+│   │   ├── communication_nodes.py  # Upfront communication
+│   │   ├── analysis_nodes.py   # File analysis workflow
+│   │   ├── approval_nodes.py   # Human-in-the-loop approval
+│   │   └── refinement_nodes.py # Command refinement
+│   ├── tools/
+│   │   ├── shell_tools.py      # Shell command execution
+│   │   └── file_tools.py       # File reading & analysis
+│   ├── tui/
+│   │   ├── app.py              # Main TUI application
+│   │   ├── bridge.py           # LangGraph ↔ TUI bridge
+│   │   ├── state.py            # TUI state management
+│   │   ├── styles.tcss         # Cyberpunk styling
+│   │   └── widgets/            # Custom TUI widgets
+│   └── llm/
+│       └── factory.py          # LLM client factory
+├── main.py                      # Entry point
+├── pyproject.toml              # Poetry configuration
+└── README.md                   # This file
+```
+
+## 🔧 Configuration
+
+### Execution Modes
+
+Use the toggle button in the TUI:
+- **⏩ Sequential**: Commands execute one after another (default)
+- **⚡ Parallel**: Commands can execute concurrently (future enhancement)
+
+### Safety Levels
+
+Commands are categorized by risk:
+- **✅ Safe**: Auto-execute (e.g., `ls`, `pwd`, `echo`)
+- **⚠️ Moderate**: Require approval (e.g., `touch`, `mkdir`)
+- **🔴 Dangerous**: Require approval (e.g., `rm`, `chmod`, package installs)
+
+### Retry Configuration
+
+Default: 3 retries per failed command
+- Configurable via `max_retries` in state
+- LLM analyzes errors and suggests fixes
+- Automatic retry with modified commands
+
+## 🎨 Screenshots
+
+The TUI features:
+- **Left Panel**: Session history and file explorer
+- **Center Panel**: Agent conversation with special message formatting
+- **Right Panel**: Execution plan, live output, and results
+
+Message types:
+- 💡 **Understanding** (Gold) - What the agent understood
+- 📋 **Plan** (Blue) - Execution strategy
+- ⚡ **Progress** (Green) - Live command results
+- 🔄 **Retry** (Orange) - Error analysis and retry attempts
+- 💬 **User** (Purple) - Your messages
+- 🤖 **Agent** (Cyan) - Agent responses
+
+## 🚧 Current Status
+
+**Version**: 0.2.0 (Active Development)
+
+### ✅ Completed Features
+- [x] LangGraph workflow with multiple node types
+- [x] Conversational agent with upfront communication
+- [x] Dual-mode architecture (analytical + execution)
+- [x] File reading tools for code analysis
+- [x] Safety validation and approval workflows
+- [x] Retry mechanism with LLM error analysis
+- [x] Execution mode toggle (UI)
+- [x] Cyberpunk TUI with proper layout
+- [x] Special message formatting for communication nodes
+
+### 🚧 In Progress
+- [ ] Parallel execution implementation (infrastructure ready)
+- [ ] Enhanced file analysis with semantic search
+- [ ] Conversation history and context retention
+
+### 🔮 Planned Features
+- [ ] Multi-step task planning and execution
+- [ ] Git integration for code changes
+- [ ] Plugin system for custom tools
+- [ ] Notebook mode for exploratory analysis
+- [ ] Export conversation history
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+[MIT License](LICENSE)
+
+## 🙏 Acknowledgments
+
+- Built with [LangChain](https://github.com/langchain-ai/langchain) and [LangGraph](https://github.com/langchain-ai/langgraph)
+- UI powered by [Textual](https://github.com/Textualize/textual)
+- LLM integration via [Anthropic Claude](https://www.anthropic.com/) and [OpenAI](https://openai.com/)
+
+## 📞 Support
+
+For issues, questions, or suggestions, please open an issue on GitHub.
+
+---
+
+**Note**: This agent executes shell commands on your system. Always review commands before approval, especially for dangerous operations.
