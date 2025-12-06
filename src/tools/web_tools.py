@@ -4,6 +4,7 @@ from typing import Optional, List, Set, Dict, Tuple
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
+from langchain_core.tools import tool
 import requests
 
 def _duckduckgo_search(query: str) -> List[Dict[str, str]]:
