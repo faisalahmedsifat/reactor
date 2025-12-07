@@ -3,6 +3,7 @@ Powerhouse TUI Application for Reactive Shell Agent
 """
 
 import logging
+import time
 from typing import List
 from textual.app import App, ComposeResult
 from textual import work, on
@@ -38,6 +39,7 @@ from src.tui.widgets.todo_panel import TODOPanel
 from src.tui.widgets.agent_ui import (
     StateIndicator,
     LiveExecutionPanel,
+    ChatInput,
 )
 from src.tui.bridge import AgentBridge
 from src.models import ExecutionResult, ExecutionPlan
@@ -73,7 +75,7 @@ class ShellAgentTUI(App):
     TITLE = "Reactive Shell Agent IDE"
 
     BINDINGS = [
-        Binding("ctrl+c", "quit", "Quit", priority=True),
+        Binding("ctrl+c", "request_quit", "Quit", priority=True),
         Binding("ctrl+b", "toggle_sidebar", "Sidebar"),
         Binding("ctrl+backslash", "toggle_context", "Context Panel"),
         Binding("ctrl+p", "fuzzy_find", "Find File"),
@@ -91,6 +93,27 @@ class ShellAgentTUI(App):
         self.state = TUIState()
         self.execution_results: List[ExecutionResult] = []
         self.agent_worker = None  # Track running agent worker
+        self.last_quit_time = 0.0
+
+    def action_request_quit(self) -> None:
+        """Handle quit request with double-press confirmation"""
+        current_time = time.time()
+        if current_time - self.last_quit_time < 2.0:
+            self.exit()
+        else:
+            self.last_quit_time = current_time
+            self.notify("Press Ctrl+C again to quit", title="Quit", severity="information")
+
+    def copy_to_clipboard(self, text: str) -> None:
+        """Override clipboard copy to use pyperclip"""
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+            logger.info("Copied to clipboard via pyperclip")
+        except Exception as e:
+            logger.warning(f"Pyperclip copy failed: {e}")
+            # Fallback to Textual's default (OSC 52)
+            super().copy_to_clipboard(text)
 
     def compose(self) -> ComposeResult:
         """Create the Cyberpunk IDE layout"""
@@ -100,13 +123,13 @@ class ShellAgentTUI(App):
         with Container(id="main-layout"):
             # Col 1: Files
             with Vertical(id="col-files"):
-                yield Static("SESSION HISTORY", classes="panel-header")
+                yield Static("Project Structure", classes="panel-header")
                 yield FileExplorer("./", id="file-explorer")
 
             # Col 2: Agent
             with Vertical(id="col-agent"):
                 yield Static(
-                    "CYBERPUNK AGENT", classes="panel-header panel-header-purple"
+                    "ReACTOR AGENT", classes="panel-header panel-header-purple"
                 )
                 yield AgentDashboard(id="agent-dashboard")
 
@@ -116,9 +139,6 @@ class ShellAgentTUI(App):
                 yield TODOPanel(id="todo-panel")
                 yield Static("LIVE OUTPUT", classes="panel-header")
                 yield LiveExecutionPanel(id="live-execution")
-                yield Static("CONTEXT / DRAFT", classes="panel-header")
-                with Container(id="right-panel"):
-                    yield Static("Code Viewer Disabled", id="code-viewer-placeholder")
 
         # Footer
         yield StatusBar(id="status-bar")
@@ -126,6 +146,23 @@ class ShellAgentTUI(App):
     def on_mount(self) -> None:
         """Initialize"""
         logger.info("TUI Mounted")
+        
+        # Fresh Session: Clear Todo State
+        try:
+            from src.tools.todo_tools import reset_todos
+            reset_todos()
+            logger.info("Cleared session todos")
+        except Exception as e:
+            logger.error(f"Failed to reset todos: {e}")
+
+        # Clear Live Log
+        live_log = Path(".reactor_live_output.log").resolve()
+        if live_log.exists():
+            try:
+                live_log.unlink()
+            except:
+                pass
+
         self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
             "Welcome to the Powerhouse TUI!", "info"
         )
@@ -334,54 +371,51 @@ class ShellAgentTUI(App):
                 f"❌ Error opening file: {e}", "error"
             )
 
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
+    async def on_chat_input_submitted(self, event: ChatInput.Submitted) -> None:
         """Handle input from AgentDashboard"""
-        if event.input.id == "agent-input":
-            command = event.value.strip()
-            if not command:
-                return
+        # ChatInput clears itself on submit, so we just processing the value
+        command = event.value.strip()
+        if not command:
+            return
 
-            # Handle slash commands
-            if command.startswith("/"):
-                self._handle_slash_command(command)
-                event.input.value = ""
-                return
+        # Handle slash commands
+        if command.startswith("/"):
+            self._handle_slash_command(command)
+            return
 
-            # Extract @ file references
-            import re
+        # Extract @ file references
+        import re
 
-            file_refs = re.findall(r"@([^\s]+)", command)
+        file_refs = re.findall(r"@([^\s]+)", command)
 
-            # If file references exist, prepend instruction to read them first
-            if file_refs:
-                files_str = ", ".join([f'"{ref}"' for ref in file_refs])
-                command = f"Before proceeding, use read_file_content tool to read these files: {files_str}. Then: {command}"
+        # If file references exist, prepend instruction to read them first
+        if file_refs:
+            files_str = ", ".join([f'"{ref}"' for ref in file_refs])
+            command = f"Before proceeding, use read_file_content tool to read these files: {files_str}. Then: {command}"
 
-            dashboard = self.query_one(AgentDashboard)
-            log_viewer = dashboard.query_one("#log-viewer")
+        dashboard = self.query_one(AgentDashboard)
+        log_viewer = dashboard.query_one("#log-viewer")
 
-            # Reset UI elements for new run
-            self.execution_results = []
-            self.execution_results = []
+        # Reset UI elements for new run
+        self.execution_results = []
+        
+        # Prepare Live Execution Panel
+        live_panel = self.query_one(LiveExecutionPanel)
+        live_panel.clear()
+        live_panel.add_class("-visible")
 
-            # Prepare Live Execution Panel
-            live_panel = self.query_one(LiveExecutionPanel)
-            live_panel.clear()
-            live_panel.add_class("-visible")
+        # Input cleared by widget action
 
-            # Clear input
-            event.input.value = ""
+        # Show user message (original, before modification)
+        log_viewer.add_log(f"💬 You: {event.value.strip()}", "info")
+        self.query_one(StatusBar).agent_state = "thinking"
+        dashboard.query_one(StateIndicator).state = "thinking"
 
-            # Show user message (original, before modification)
-            log_viewer.add_log(f"💬 You: {event.value.strip()}", "info")
-            self.query_one(StatusBar).agent_state = "thinking"
-            dashboard.query_one(StateIndicator).state = "thinking"
-
-            # Send to bridge with execution mode
-            execution_mode = self.query_one(AgentDashboard).execution_mode
-            self.agent_worker = self.run_worker(
-                self.bridge.process_request(command, execution_mode), exclusive=True
-            )
+        # Send to bridge with execution mode
+        execution_mode = self.query_one(AgentDashboard).execution_mode
+        self.agent_worker = self.run_worker(
+            self.bridge.process_request(command, execution_mode), exclusive=True
+        )
 
     def on_directory_tree_file_selected(self, event: FileExplorer.FileSelected) -> None:
         """Handle file selection from sidebar"""
@@ -465,12 +499,17 @@ class ShellAgentTUI(App):
         dashboard.query_one(StateIndicator).state = "complete"
         self.query_one(LiveExecutionPanel).remove_class("-visible")
 
+        # Only show a simple completion marker, since the final message was already streamed/logged by the bridge
+        dashboard.query_one("#log-viewer").add_log("🏁 **Session Finished**", "info")
+
     async def on_agent_error(self, error: str) -> None:
         self.query_one(StatusBar).agent_state = "error"
         dashboard = self.query_one(AgentDashboard)
         dashboard.query_one(StateIndicator).state = "error"
         dashboard.query_one("#log-viewer").add_log(f"Error: {error}", "error")
         self.query_one(LiveExecutionPanel).remove_class("-visible")
+
+
 
 
 def run_tui():

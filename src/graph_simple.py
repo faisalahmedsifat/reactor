@@ -59,7 +59,7 @@ def create_simple_shell_agent():
 
     # Conditional: After agent, either use tools or finish
     workflow.add_conditional_edges(
-        "agent", should_continue, {"tools": "tools", "end": END}
+        "agent", should_continue, {"tools": "tools", "thinking": "thinking", "end": END}
     )
 
     # After using tools, go back to thinking to analyze results
@@ -151,10 +151,14 @@ async def agent_node(state: ShellAgentState) -> ShellAgentState:
     # Invoke LLM
     response = await llm_with_tools.ainvoke(messages_for_llm)
 
-    # Add response to messages
-    state["messages"].append(response)
+    # Return partial update to avoid message duplication (since state uses add_messages)
+    updates = {"messages": [response]}
+    
+    # If system_info was fetched newly, include it in update
+    if not state.get("system_info") and system_info:
+        updates["system_info"] = system_info
 
-    return state
+    return updates
 
 
 def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
@@ -166,8 +170,13 @@ def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
     if hasattr(last_message, "tool_calls") and last_message.tool_calls:
         return "tools"
 
-    # Otherwise, end
-    return "end"
+    # If the agent explicitly indicates completion, end
+    content = getattr(last_message, "content", "") or ""
+    if "task complete" in content.lower():
+        return "end"
+
+    # Otherwise, loop back to thinking (Agent might have just chatted, so we force more thought)
+    return "thinking"
 
 
 # ============= EXECUTION HELPER =============

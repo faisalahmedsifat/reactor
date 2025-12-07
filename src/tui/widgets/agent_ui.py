@@ -1,14 +1,17 @@
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical, Horizontal, VerticalScroll
-from textual.widgets import Static, RichLog, Label, Input, Tree, Markdown, Button
+from textual.widgets import Static, RichLog, Label, Input, Tree, Markdown, Button, TextArea
 from textual.reactive import reactive
 from textual.message import Message
+from textual.binding import Binding
 from rich.text import Text
 from rich.syntax import Syntax
 from rich.spinner import Spinner
 from rich.panel import Panel
 from rich.table import Table
 from typing import Optional, List
+from pathlib import Path
+import logging
 
 from src.models import ExecutionResult, ExecutionPlan, RiskLevel, Command
 
@@ -142,6 +145,10 @@ class LogViewer(VerticalScroll):
             border_style = "bold orange1"
             title = "[bold orange1]Warning[/]"
             content = message
+        elif level == "thought":
+            border_style = "slate_blue1"
+            title = "[italic slate_blue1]Thinking[/]"
+            content = f"[italic]{message}[/]"
         else:
             border_style = "dim"
             content = message
@@ -150,7 +157,11 @@ class LogViewer(VerticalScroll):
 
         # Create Panel and mount as Static widget
         # Needs to be created before container
-        panel_widget = Static()
+        # Use CSS classes for styling instead of hardcoded inline styles
+        panel_widget = Static(classes=f"log-panel log-{level}")
+        
+        # We wrap content in a Panel object for the border/title, but let CSS handle valid styles where possible
+        # Textual Panel object styles are limited, so we keep border styling here but move colors to CSS
         panel_widget.update(
             Panel(
                 md,
@@ -158,17 +169,16 @@ class LogViewer(VerticalScroll):
                 title=title,
                 title_align="left" if title == "[bold]Agent[/]" else "right",
                 padding=(0, 1),
-                style=f"white on {BG_TERTIARY}",
                 expand=True,
             )
         )
 
-        # Add copy button (small, unobtrusive)
-        copy_btn = Button("Copy", variant="default", classes="copy-btn")
-        copy_btn.tooltip = "Copy message to clipboard"
+        # Add copy button (small, neon style)
+        copy_btn = Button("📋", variant="default", classes="copy-btn")
+        copy_btn.tooltip = "Copy to clipboard"
         # Store content for copying
         copy_btn.copy_content = content
-
+        
         # Create Container for message and copy button
         # Pass children directly to constructor to avoid MountError
         container = Container(panel_widget, copy_btn, classes="message-container")
@@ -194,54 +204,96 @@ class LogViewer(VerticalScroll):
                 )
 
 
-class LiveExecutionPanel(Static):
+class LiveExecutionPanel(Vertical):
     """Panel to show live output of running commands"""
+    
+    # We don't use reactive output directly anymore, we update the TextArea
+    _poll_timer: Optional[object] = None
 
-    output: reactive[object] = reactive("")
+    def compose(self) -> ComposeResult:
+        yield Label("Live Output", classes="panel-header")
+        # TextArea supports selection and scrolling natively
+        yield TextArea(
+            "", 
+            language="text", 
+            read_only=True, 
+            id="live-output-text",
+            classes="cyber-textarea"
+        )
+        with Horizontal(classes="panel-footer"):
+            yield Button("📋 Copy Log", id="copy-live-btn", variant="default")
+            yield Label("", id="live-status")
+
+    def on_mount(self) -> None:
+        pass
+
+    def start_monitoring(self, command: str) -> None:
+        """Start monitoring the live output log."""
+        text_area = self.query_one("#live-output-text", TextArea)
+        text_area.text = f"Executing: {command}\nWaiting for output..."
+        self.remove_class("-hidden")
+        self.styles.display = "block"
+        
+        # Start timer to read log file
+        self.set_interval(0.2, self._poll_log)
+
+    def stop_monitoring(self) -> None:
+        pass
+
+    def _poll_log(self) -> None:
+        """Read the live log file and update display."""
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            log_path = Path(".reactor_live_output.log").resolve()
+            if log_path.exists():
+                content = log_path.read_text(encoding="utf-8")
+                # Truncate if too long
+                truncated = False
+                if len(content) > 50000:
+                    content = "... [truncated] ...\n" + content[-50000:]
+                    truncated = True
+                
+                text_area = self.query_one("#live-output-text", TextArea)
+                
+                # Check if content actually changed to avoid cursor reset
+                if text_area.text != content:
+                    # Save cursor? TextArea might reset cursor on setting text.
+                    # Ideally we append? But we read full file.
+                    # Just set text and scroll end.
+                    text_area.text = content
+                    text_area.scroll_end(animate=False)
+            else:
+               status = self.query_one("#live-status", Label)
+               status.update(f"Waiting for {log_path}...")
+        except Exception as e:
+            logger.error(f"Poll error: {e}")
 
     def set_content(self, result: ExecutionResult) -> None:
         """Update panel content from an ExecutionResult."""
-        from rich.text import Text
-
-        header = Text(
-            f"CMD: {result.command}\\nEXIT CODE: {result.exit_code}\\n", style="bold"
+        text_area = self.query_one("#live-output-text", TextArea)
+        
+        content = (
+            f"CMD: {result.command}\n"
+            f"EXIT CODE: {result.exit_code}\n\n"
+            f"--- STDOUT ---\n{result.stdout}\n\n"
+            f"--- STDERR ---\n{result.stderr}\n"
         )
-
-        stdout_header = Text("\\n--- STDOUT ---\\n", style="bold green")
-        # FIX: folding overflow to prevent horizontal scroll
-        stdout_content = Text(
-            result.stdout if result.stdout.strip() else "[empty]",
-            style="green",
-            overflow="fold",
-            no_wrap=False,
-        )
-
-        stderr_header = Text("\\n--- STDERR ---\\n", style="bold red")
-        stderr_content = Text(
-            result.stderr if result.stderr.strip() else "[empty]",
-            style="red",
-            overflow="fold",
-            no_wrap=False,
-        )
-
-        # Store the rich text in the reactive variable to trigger render
-        self.output = Text.assemble(
-            header, stdout_header, stdout_content, stderr_header, stderr_content
-        )
+        text_area.text = content
+        text_area.scroll_end()
 
     def clear(self) -> None:
         """Clear the panel content."""
-        self.update("")
+        self.query_one("#live-output-text", TextArea).text = ""
 
-    def render(self) -> Panel:
-        content = self.output or "[dim]No active execution[/dim]"
-        return Panel(
-            content,
-            title="[bold yellow]Live Output[/bold yellow]",
-            border_style="yellow",
-            height=None,
-            expand=True,  # Force fit to container width
-        )
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "copy-live-btn":
+            text_area = self.query_one("#live-output-text", TextArea)
+            try:
+                self.app.copy_to_clipboard(text_area.text)
+                self.notify("Log copied to clipboard!")
+            except Exception:
+                self.notify("Failed to copy.", severity="error")
 
 
 class StateIndicator(Static):
@@ -364,6 +416,37 @@ class ResultsPanel(Static):
         self.update(table)
 
 
+class ChatInput(TextArea):
+    """Custom TextArea for chat input with Enter-to-submit"""
+
+    class Submitted(Message):
+        """Posted when user presses Enter without Shift"""
+        def __init__(self, value: str):
+            self.value = value
+            super().__init__()
+
+    BINDINGS = [
+        Binding("enter", "submit", "Submit", priority=True),
+        Binding("shift+enter", "newline", "Newline", priority=True),
+    ]
+
+    def action_submit(self) -> None:
+        """Submit the current text"""
+        value = self.text.strip()
+        if value:
+            self.post_message(self.Submitted(value))
+            # Input is cleared by the app handler usually, but we can clear here too to look responsive
+            # Let's let the app handler clear it or we clear it here.
+            # Ideally app handles it.
+            # But simpler: clear here.
+            self.text = ""
+            self.cursor_location = (0, 0)
+    
+    def action_newline(self) -> None:
+        """Insert newline"""
+        self.insert("\n")
+
+
 class AgentDashboard(Container):
     """Main dashboard for Agent interaction (Chat & Input)"""
 
@@ -384,7 +467,7 @@ class AgentDashboard(Container):
                 yield Button("Sequential", id="mode-toggle", variant="primary")
             yield LogViewer(id="log-viewer")
             with Container(id="input-container"):
-                yield Input(placeholder="Ask the agent...", id="agent-input")
+                yield ChatInput(id="agent-input")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle execution mode toggle"""

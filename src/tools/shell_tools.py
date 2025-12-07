@@ -2,6 +2,7 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import subprocess
+import asyncio
 import platform
 from pathlib import Path
 import time
@@ -112,14 +113,14 @@ def validate_command_safety(command: str) -> Dict[str, Any]:
 # Tool 4: Execute Command
 class ExecuteInput(BaseModel):
     command: str
-    working_directory: str = Field(default="~")
+    working_directory: str = Field(default=".")
     timeout: int = Field(default=30)
     dry_run: bool = Field(default=False)
 
 
 @tool(args_schema=ExecuteInput)
-def execute_shell_command(
-    command: str, working_directory: str = "~", timeout: int = 30, dry_run: bool = False
+async def execute_shell_command(
+    command: str, working_directory: str = ".", timeout: int = 30, dry_run: bool = False
 ) -> Dict[str, Any]:
     """
     Execute a shell command safely.
@@ -130,6 +131,9 @@ def execute_shell_command(
     Set dry_run=True to simulate without actually executing.
     """
     start = time.time()
+    
+    # Live output log file - Use absolute path in CWD
+    live_log_path = Path(".reactor_live_output.log").resolve()
 
     if dry_run:
         return {
@@ -142,37 +146,83 @@ def execute_shell_command(
         }
 
     try:
-        # Detect OS and choose shell
+        # Detect OS for shell selection
         system = platform.system().lower()
-        shell_cmd = None
+        cwd = str(Path(working_directory).expanduser())
 
+        # Append to live log instead of truncate
+        with open(live_log_path, "a", encoding="utf-8") as f:
+            f.write(f"\n\n{'='*40}\n--- Executing: {command} ---\n--- Directory: {cwd} ---\n{'='*40}\n")
+
+        # Create subprocess asynchronously
+        process = None
+        
         if system == "windows":
-            # Force PowerShell on Windows
-            shell_cmd = ["powershell.exe", "-NoProfile", "-Command", command]
-            # When using list args with subprocess, shell must be False
-            use_shell = False
+            # Windows: use powershell
+            cmd_list = ["powershell.exe", "-NoProfile", "-Command", command]
+            process = await asyncio.create_subprocess_exec(
+                *cmd_list,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+            )
         else:
-            # Use default shell behavior on Unix
-            shell_cmd = command
-            use_shell = True
+            # Unix: use shell=True via specific method
+            # We assume 'bash' or similar is available
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+                # executable="/bin/bash" # Optional: force bash
+            )
 
-        result = subprocess.run(
-            shell_cmd,
-            shell=use_shell,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=str(Path(working_directory).expanduser()),
+        stdout_acc = []
+        stderr_acc = []
+
+        async def read_stream(stream, acc):
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                decoded = line.decode(errors='replace')
+                acc.append(decoded)
+                # Write to live log
+                try:
+                    with open(live_log_path, "a", encoding="utf-8") as f:
+                        f.write(decoded)
+                        f.flush()
+                except:
+                    pass
+
+        # Concurrent reading of stdout and stderr
+        await asyncio.gather(
+            read_stream(process.stdout, stdout_acc),
+            read_stream(process.stderr, stderr_acc)
         )
 
+        try:
+            await asyncio.wait_for(process.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            try:
+                process.terminate()
+                await process.wait()
+            except:
+                pass # Already dead
+            raise TimeoutError(f"Command timed out after {timeout}s")
+
+        stdout_str = "".join(stdout_acc)
+        stderr_str = "".join(stderr_acc)
+
         return {
-            "success": result.returncode == 0,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "exit_code": result.returncode,
+            "success": process.returncode == 0,
+            "stdout": stdout_str,
+            "stderr": stderr_str,
+            "exit_code": process.returncode,
             "duration_ms": (time.time() - start) * 1000,
             "command": command,
         }
+
     except Exception as e:
         return {
             "success": False,
@@ -227,12 +277,37 @@ def get_system_info() -> Dict[str, str]:
     # Get username (works on both Windows and Unix)
     username = os.environ.get("USER") or os.environ.get("USERNAME", "unknown")
 
+    # Get minimal git info if available
+    git_info = "Not a git repo"
+    try:
+        # Check if .git exists in current or parent dirs
+        # Simple check: call git branch --show-current
+        proc = subprocess.run(
+            ["git", "branch", "--show-current"], 
+            capture_output=True, 
+            text=True, 
+            timeout=1
+        )
+        if proc.returncode == 0:
+            branch = proc.stdout.strip()
+            if branch:
+                git_info = f"Git Branch: {branch}"
+            else:
+                git_info = "Git Repo (Detached/No Branch)"
+    except Exception:
+        pass
+
+    # Get python version
+    python_version = platform.python_version()
+
     return {
         "os_type": os_type,
         "shell_type": shell_type,
         "working_directory": str(Path.cwd()),
         "user": username,
         "hostname": platform.node(),
+        "git_info": git_info,
+        "python_version": python_version,
     }
 
 

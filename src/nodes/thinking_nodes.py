@@ -20,36 +20,12 @@ async def thinking_node(state: ShellAgentState) -> ShellAgentState:
     llm_client = get_llm_client()
     messages = state["messages"]
 
-    # Combine all tools into one list for the thinking node
-    all_tools = [
-        # System tools
-        shell_tools.get_system_info,
-        shell_tools.execute_shell_command,
-        shell_tools.validate_command_safety,
-        # File tools
-        file_tools.read_file_content,
-        file_tools.write_file,
-        file_tools.modify_file,
-        file_tools.list_project_files,
-        file_tools.search_in_files,
-        # Web tools
-        web_tools.web_search,
-        web_tools.recursive_crawl,
-        # TODO tools
-        todo_tools.create_todo,
-        todo_tools.complete_todo,
-        todo_tools.list_todos,
-        todo_tools.update_todo,
-    ]
+    # thinking_node does NOT bind tools. It is pure reasoning.
+    # The agent_node will bind tools and execute them based on the plan.
 
-    # Bind all tools to the LLM for the thinking node
-    llm_with_tools = llm_client.bind_tools(all_tools)
-
-    # Get system info for prompt context
-    system_info = state.get("system_info")
-    if not system_info:
-        system_info = await shell_tools.get_system_info.ainvoke({})
-        state["system_info"] = system_info
+    # Always refresh system info to ensure Thinking node has latest context (CWD, etc)
+    system_info = await shell_tools.get_system_info.ainvoke({})
+    state["system_info"] = system_info
 
     # Load prompt from centralized system
     from src.prompts import get_prompt
@@ -59,6 +35,8 @@ async def thinking_node(state: ShellAgentState) -> ShellAgentState:
         os_info=system_info["os_type"],
         shell_info=system_info["shell_type"],
         working_dir=system_info["working_directory"],
+        git_info=system_info.get("git_info", "Unknown"),
+        python_info=system_info.get("python_version", "Unknown"),
     )
 
     # Auto-compact conversation if too long
@@ -106,10 +84,12 @@ async def thinking_node(state: ShellAgentState) -> ShellAgentState:
 
     messages = context_messages
 
-    # Call LLM (now with tools bound)
+    # Call LLM (pure reasoning, no tools bound)
     print(f"\n[DEBUG] Thinking Node Input Messages: {len(messages)}")
     try:
-        response = await llm_with_tools.ainvoke(messages)  # Use llm_with_tools
+        # thinking_node should NOT call tools, only plan.
+        # The agent_node will see this plan and call the tools.
+        response = await llm_client.ainvoke(messages)
     except Exception as e:
         print(f"[DEBUG] LLM Invoke Error: {e}")
         response = AIMessage(content=f"Error: {e}")

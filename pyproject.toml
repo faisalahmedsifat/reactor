@@ -17,6 +17,7 @@ dependencies = [
     "langchain-google-genai (>=3.2.0,<4.0.0)",
     "textual (>=0.85.0,<1.0.0)",
     "rich (>=13.9.0,<14.0.0)",
+    "pyperclip (>=1.11.0,<2.0.0)",
 ]
 
 [tool.poetry]

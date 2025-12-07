@@ -133,11 +133,22 @@ LogViewer {
     color: $text-primary;
 }
 
-.message-system {
-    color: $text-secondary;
+.log-panel {
+    background: $bg-tertiary;
+    color: $text-primary;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+/* Specific log levels if needed, though colors are handled by Panel border */
+.log-error {
+    color: $accent-pink;
+}
+
+.log-thought {
+    color: $text-dim;
     text-style: italic;
-    content-align: center middle;
-    padding: 1;
+    background: transparent;
 }
 
 /* Dashboard Layout (Column 2 internals) */
@@ -173,6 +184,7 @@ LogViewer {
     border: solid $border-dim;
     color: $accent-cyan;
     padding: 0 1;
+    height: 3; /* Fixed height for chat input */
 }
 
 #agent-input:focus {
@@ -276,18 +288,42 @@ StateIndicator {
 
 .copy-btn {
     dock: right;
-    min-width: 10;
+    min-width: 4;
+    width: 6;
     height: 1;
-    background: $bg-tertiary;
-    color: $text-secondary;
+    background: transparent;
+    color: $accent-cyan;
     border: none;
     margin-top: 0;
     margin-right: 2;
 }
 
 .copy-btn:hover {
+    color: $bg-primary;
+    background: $accent-cyan;
+}
+
+#copy-live-btn {
+    background: $bg-tertiary;
+    color: $accent-cyan;
+    border: solid $accent-cyan;
+    height: 3;
+    margin: 1;
+}
+
+#copy-live-btn:hover {
     background: $accent-cyan;
     color: $bg-primary;
+}
+
+.cyber-textarea {
+    background: $bg-tertiary;
+    color: $accent-green; /* Terminal green */
+    border: none;
+    height: 1fr; /* Fill available vertical space in the panel */
+}
+.cyber-textarea > .text-area--cursor-line {
+    background: $bg-secondary;
 }
 
 /* Collapsible Widget Styles */
@@ -393,16 +429,13 @@ LiveExecutionPanel {
     background: $bg-secondary;
     border: solid $accent-yellow;
     padding: 1;
-    height: auto;
-    max-height: 30;
-    overflow-y: auto;
-    display: block; /* Changed from none to block */
+    height: 1fr; /* Fill remaining space */
 }
 
 /* TODOPanel (Now at top) */
 TODOPanel {
     background: $bg-secondary;
     border: solid $accent-purple;
-    height: 35%; /* Fixed percentage */
+    height: 40%; /* Reduced from 35% to give more space to Live Output */
     padding: 0;
 }

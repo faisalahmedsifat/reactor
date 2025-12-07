@@ -54,8 +54,8 @@ class AgentBridge:
             "analysis_data": None,
         }
 
-        config = {"configurable": {"thread_id": self.thread_id}, "recursion_limit": 50}
-
+        config = {"configurable": {"thread_id": self.thread_id}, "recursion_limit": 200}
+        
         # Notify TUI that processing started
         await self.tui_app.on_agent_start()
 
@@ -63,7 +63,7 @@ class AgentBridge:
             # Stream execution
             event_count = 0
             async for event in self.graph.astream(
-                initial_state, config, stream_mode="updates", recursion_limit=100
+                initial_state, config, stream_mode="updates", recursion_limit=200
             ):
                 event_count += 1
                 for node_name, node_output in event.items():
@@ -97,29 +97,39 @@ class AgentBridge:
 
     async def handle_thinking_node(self, node_output: dict) -> None:
         """Handle output from difference thinking node"""
+        # Debug trace
+        with open("debug_thoughts.log", "a") as f:
+            f.write(f"Thinking node RAW: {str(node_output)}\n")
+
         if "messages" in node_output and node_output["messages"]:
             last_msg = node_output["messages"][-1]
-            if isinstance(last_msg, AIMessage):
-                # Extract text content
-                content_text = ""
+            
+            # Extract content robustly (handle object or dict)
+            content_text = ""
+            msg_type = type(last_msg)
+            
+            # Case 1: Object (serialized)
+            if hasattr(last_msg, "content"):
                 if isinstance(last_msg.content, str):
                     content_text = last_msg.content
                 elif isinstance(last_msg.content, list):
                     for block in last_msg.content:
-                        if isinstance(block, dict) and "text" in block:
-                            content_text += block["text"]
-                        elif hasattr(block, "text"):
-                            content_text += block.text
-                        elif isinstance(block, str):
-                            content_text += block
+                         if isinstance(block, dict) and "text" in block:
+                             content_text += block["text"]
+                         # object block access usually block.text if object
+            
+            # Case 2: Dictionary (json)
+            elif isinstance(last_msg, dict):
+                content_text = last_msg.get("content", "")
+            
+            with open("debug_thoughts.log", "a") as f:
+                f.write(f"Parsed Content ({msg_type}): {content_text[:50]}...\n")
 
-                # Log thought process as visible agent message
-                if content_text.strip():
-                    dashboard = self.tui_app.query_one("AgentDashboard")
-                    log_viewer = dashboard.query_one("#log-viewer")
-                    # Use a subtle prefix or just "Thinking:" if preferred, but user wanted Visible Text
-                    log_viewer.add_log(content_text, "agent")
-                    chat_logger.log_turn("agent", f"Thinking: {content_text}")
+            if content_text.strip():
+                dashboard = self.tui_app.query_one("AgentDashboard")
+                log_viewer = dashboard.query_one("#log-viewer")
+                log_viewer.add_log(content_text, "thought")
+                chat_logger.log_turn("agent", f"Thinking: {content_text}")
 
     async def handle_agent_node(self, node_output: dict) -> None:
         """Handle output from the Agent (Tool Selector) node"""
@@ -167,30 +177,14 @@ class AgentBridge:
                         if tool_name == "execute_shell_command":
                             cmd = args.get("command", "unknown")
                             log_viewer.add_log(
-                                f"🛠️ Executing: `{cmd}`", "info", is_thought=True
+                                f"🛠️ Executing: `{cmd}`", "info", is_thought=False
                             )
-                            # IMMEDIATE FEEDBACK: Show in Live Panel
+                            # IMMEDIATE FEEDBACK: Start Live Monitoring
                             try:
                                 live_panel = self.tui_app.query_one(
                                     "LiveExecutionPanel"
                                 )
-                                # Manually set content to "Executing..." state
-                                from src.models import ExecutionResult
-
-                                placeholder = ExecutionResult(
-                                    command=cmd,
-                                    success=True,  # Tentative
-                                    stdout="...",
-                                    stderr="",
-                                    exit_code=0,
-                                    duration_ms=0,
-                                )
-                                live_panel.set_content(placeholder)
-                                # Override the render with a spinner or running text if possible,
-                                # but set_content will at least show the command name.
-                                live_panel.output = f"[bold yellow]Executing:[/bold yellow] {cmd}\n[dim]Waiting for output...[/dim]"
-                                live_panel.remove_class("-hidden")
-                                live_panel.styles.display = "block"
+                                live_panel.start_monitoring(cmd)
                             except Exception as e:
                                 logger.error(f"Failed to set live panel: {e}")
                         elif tool_name in ["write_file", "modify_file", "read_file_content"]:
@@ -203,11 +197,11 @@ class AgentBridge:
                             log_viewer.add_log(
                                 f"🛠️ File Op ({tool_name}): `{basename}`",
                                 "info",
-                                is_thought=True,
+                                is_thought=False,
                             )
                             pass # CodeViewer update removed
                             log_viewer.add_log(
-                                f"🛠️ Using tool: {tool_name}", "info", is_thought=True
+                                f"🛠️ Using tool: {tool_name}", "info", is_thought=False
                             )
 
         # Force a refresh of the Todo panel at the end of processing any tool
@@ -236,11 +230,13 @@ class AgentBridge:
 
         for msg in messages:
             if isinstance(msg, ToolMessage):
+                logger.info(f"Processing ToolMessage: {msg.name} id={msg.tool_call_id}")
                 await self.process_tool_result(msg)
 
     async def process_tool_result(self, tool_msg: ToolMessage) -> None:
         """Process a single tool result for UI updates"""
         tool_name = tool_msg.name
+        logger.info(f"Bridge processing tool result for: {tool_name}")
 
         # We primarily care about execution results for the specialized UI panels
         if tool_name == "execute_shell_command":

@@ -174,3 +174,15 @@ def clear_completed_todos():
     global _todos
     _todos = {k: v for k, v in _todos.items() if v["status"] != "completed"}
     _save_todos()
+
+
+def reset_todos():
+    """Reset all todos (memory and disk)"""
+    global _todos, _todo_counter
+    _todos = {}
+    _todo_counter = 0
+    if TODO_FILE.exists():
+        try:
+            TODO_FILE.unlink()
+        except:
+            pass
