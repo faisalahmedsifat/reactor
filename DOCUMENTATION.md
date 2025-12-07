@@ -120,130 +120,45 @@ Enable developers to interact with their codebase and system using natural langu
 
 ### Workflow Graph
 
-The agent uses LangGraph to orchestrate its workflow with two distinct paths:
+The agent uses a reliable **Thinking-Agent Loop** implemented in LangGraph:
 
 ```mermaid
 graph TD
-    A[gather_system_info] --> B[llm_parse_intent]
-    B --> C[communicate_understanding]
-    C --> D{is_analytical?}
+    Start[User Input] --> Thinking[Thinking Node]
+    Thinking --> Agent[Agent Node]
     
-    D -->|Yes| E[discover_files]
-    E --> F[read_relevant_files]
-    F --> G[analyze_and_summarize]
-    G --> M[summarize]
+    Agent -->|Call Tools| Tools[Tool Node]
+    Tools --> Thinking
     
-    D -->|No| H[llm_generate_plan]
-    H --> I[communicate_plan]
-    I --> J[refine_command]
-    J --> K[validate_safety]
-    K --> L{safe?}
-    L -->|No| N[request_approval]
-    L -->|Yes| O[execute_command]
-    N --> O
-    O --> P[stream_progress]
-    P --> Q{success?}
-    Q -->|No| R[llm_analyze_error]
-    R --> S{retry?}
-    S -->|Yes| O
-    S -->|No| M
-    Q -->|Yes| T{more_commands?}
-    T -->|Yes| J
-    T -->|No| U[llm_reflection]
-    U --> M
-    
-    M --> Z[END]
+    Agent -->|Action| EndCondition{Complete?}
+    EndCondition -->|No| Thinking
+    EndCondition -->|Yes| Finish[End Task]
 ```
 
-### State Schema
+### Core Design Philosophy
 
-```python
-class ShellAgentState(TypedDict):
-    # Core communication
-    messages: List[BaseMessage]           # Conversation history
-    user_input: str                       # Original request
-    
-    # Intent understanding
-    system_info: Optional[dict]           # OS, shell, working dir
-    intent: Optional[CommandIntent]       # Parsed intent with category
-    
-    # Execution flow
-    execution_plan: Optional[ExecutionPlan]  # Generated commands
-    current_command_index: int            # Execution progress
-    results: List[ExecutionResult]        # Command outputs
-    retry_count: int                      # Current retry attempt
-    requires_approval: bool               # Approval gate
-    approved: bool                        # User decision
-    error: Optional[str]                  # Last error
-    
-    # Configuration
-    execution_mode: Literal["sequential", "parallel"]  # Execution style
-    max_retries: int                      # Retry limit
-    
-    # Analytical flow
-    analysis_data: Optional[Dict[str, Any]]  # File contents & metadata
-```
+1. **Thinking (Brain)**: A pure reasoning node that analyzes the state, context, and previous tool outputs. It does NOT call tools. It produces a natural language "thought" or "plan".
+2. **Agent (Hands)**: An execution node that interprets the plan and selects the appropriate tools. It is the only node allowed to trigger actions.
+3. **Tools (Action)**: The actual execution layer (Shell, File I/O, Web).
 
 ### Node Types
 
-#### **LLM Reasoning Nodes**
-Use LLM for intelligent decision-making:
-- `llm_parse_intent`: Extract task description, category, entities
-- `llm_generate_plan`: Create multi-step execution plan
-- `llm_analyze_error`: Diagnose failures and suggest fixes
-- `llm_reflection`: Final thoughts and recommendations
+#### **Thinking Node** (`src/nodes/thinking_nodes.py`)
+- *Role*: Strategic Planner
+- *Input*: Conversation history, System Info
+- *Output*: Reasoning text (visible in TUI as "Thinking")
+- *Behavior*: Analyzes results, checks for errors, decides next step.
 
-#### **Communication Nodes**
-Provide upfront transparency:
-- `communicate_understanding`: "Here's what I understood..."
-- `communicate_plan`: "Here's how I'll do it..."
-- `stream_progress`: "Command X completed: ..."
+#### **Agent Node** (`src/graph_simple.py`)
+- *Role*: Tactical Executor
+- *Input*: Thinking output
+- *Output*: Tool Calls OR Final Summary
+- *Behavior*: Translates high-level thoughts into specific tool parameters.
 
-#### **Analysis Nodes**
-File-based intelligence:
-- `discover_files`: Recursively list and categorize files
-- `read_relevant_files`: Read README, configs, source code
-- `analyze_and_summarize`: LLM analyzes contents
-
-#### **Execution Nodes**
-Command lifecycle:
-- `refine_command`: Add context, environment variables
-- `validate_safety`: Check risk level
-- `request_approval`: Human gate for dangerous ops
-- `execute_command`: Run shell command
-- `summarize`: Final execution report
-
-### Routing Logic
-
-**Intent-Based Routing** (`route_after_understanding`)
-```python
-if intent.is_analytical or intent.category in ["analysis", "information_gathering", "code_review"]:
-    return "analytical_flow"
-else:
-    return "execution_flow"
-```
-
-**Safety-Based Routing** (`route_after_validation`)
-```python
-if command.risk_level == "safe":
-    return "execute_command"  # Auto-approve
-else:
-    return "request_approval"  # Human gate
-```
-
-**Result-Based Routing** (`route_after_execution`)
-```python
-if success:
-    if more_commands:
-        return "next_command"
-    else:
-        return "complete"
-else:
-    if retry_count < max_retries:
-        return "llm_analyze_error"
-    else:
-        return "complete"
-```
+#### **Tool Node**
+- *Role*: System Interactor
+- *Input*: Tool calls
+- *Output*: Tool artifacts (stdout, file content, search results)
 
 ---
 
@@ -324,10 +239,10 @@ LogViewer applies special styling based on message prefix:
 | Prefix | Title | Border Color | Use Case |
 |--------|-------|--------------|----------|
 | 💡 | 🧠 Understanding | Gold | Intent explanation |
-| 📋 | 📋 Execution Plan | Blue | Command plan |
+| 🛠️ | Activity | Default | Tool Usage / File Ops |
 | ⚡ | ⚡ Progress | Green | Execution updates |
-| 🔄 | 🔄 Retry Analysis | Orange | Error recovery |
 | 💬 | User | Purple | User messages |
+| - | Thinking | Slate Blue | Reasoning (Thinking Node) |
 | - | Agent | Cyan | Agent responses |
 | - | Error | Red | Error messages |
 

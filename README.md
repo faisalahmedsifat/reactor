@@ -117,33 +117,29 @@ Ask the agent to do something:
 ### Workflow Overview
 
 ```
-User Input → Parse Intent → Communicate Understanding
-                                      ↓
-                             [Route by Category]
-                                      ↓
-                     ┌────────────────┴─────────────────┐
-                     ↓                                  ↓
-            Analytical Flow                     Execution Flow
-                     ↓                                  ↓
-          Discover Files                      Generate Plan
-                     ↓                                  ↓
-          Read Files                          Communicate Plan
-                     ↓                                  ↓
-          Analyze & Summarize                 Execute Commands
-                     ↓                                  ↓
-                     └────────────────┬─────────────────┘
-                                      ↓
-                                  Summarize → END
+User Input → Thinking Node (Reasoning & Planning)
+                  ↓
+          Agent Node (Tool Selection)
+                  ↓
+    ┌─────────────┴─────────────┐
+    ↓                           ↓
+  Tools                   Evaluation
+    ↓                           ↓
+  (Results)           Thinking Node (Analyze)
+    ↓                           ↓
+    └─────────────→─────────────┘
+                  ↓
+          Agent Summary → END
 ```
 
 ### Key Components
 
-- **LangGraph Workflow**: Orchestrates agent nodes and routing
-- **Communication Nodes**: Handle upfront agent communication
-- **Analysis Nodes**: File discovery, reading, and LLM-based analysis
-- **Execution Nodes**: Command generation, validation, execution
-- **Textual TUI**: Beautiful cyberpunk-themed user interface
-- **LLM Integration**: Claude/OpenAI for intent parsing and planning
+- **LangGraph Workflow**: simplified ReAct-style loop with specialized nodes
+- **Thinking Node**: Pure reasoning engine that analyzes state and plans next steps
+- **Agent Node**: Execution unit that selects tools or summarizes results
+- **Tool Node**: Handles safe execution of shell and file operations
+- **Textual TUI**: "Powerhouse" interface with real-time thought visibility
+- **LLM Integration**: Context-aware prompting with system state injection
 
 ### Technology Stack
 
