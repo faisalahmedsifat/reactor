@@ -1,5 +1,5 @@
 """
-TUI (Text User Interface) package for Reactive Shell Agent
+TUI (Text User Interface) package for ReACTOR
 """
 
 from src.tui.app import ShellAgentTUI

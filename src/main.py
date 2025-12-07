@@ -14,7 +14,13 @@ load_dotenv()
 
 def parse_args():
     """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description="Reactive Shell Agent")
+    parser = argparse.ArgumentParser(description="ReACTOR")
+    
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging and conversation history saving",
+    )
     
     parser.add_argument(
         "--cli", 
@@ -122,34 +128,73 @@ def configure_environment(args):
         if env_var:
             os.environ[env_var] = args.api_key
 
+    # SMART DETECTION: If no provider is set in env, try to auto-detect from available keys
+    if not os.getenv("LLM_PROVIDER"):
+        if os.getenv("ANTHROPIC_API_KEY"):
+            os.environ["LLM_PROVIDER"] = "anthropic"
+        elif os.getenv("OPENAI_API_KEY"):
+            os.environ["LLM_PROVIDER"] = "openai"
+        elif os.getenv("GOOGLE_API_KEY"):
+            os.environ["LLM_PROVIDER"] = "google"
+    
+    # MODEL ALIGNMENT: Ensure LLM_MODEL matches the provider if not explicitly set
+    # This prevents the default "claude-sonnet..." from being sent to Google/OpenAI
+    current_provider = os.getenv("LLM_PROVIDER")
+    current_model = os.getenv("LLM_MODEL")
+
+    # If model is not set, OR if we just switched connection info, let's pick a safe default
+    # But we don't want to override if the user set it in .env. 
+    # The issue is src/llm/client.py defaults to Claude if env var is missing.
+    # to fix this, we MUST set LLM_MODEL in env if it is missing.
+    
+    if not current_model and current_provider:
+        defaults = {
+            "anthropic": "claude-4-5-sonnet-20240620",
+            "openai": "gpt-4o",
+            "google": "gemini-2.5-flash",
+            "ollama": "llama3.1"
+        }
+        default_model = defaults.get(current_provider)
+        if default_model:
+            os.environ["LLM_MODEL"] = default_model
+
 
 def validate_config():
     """Validate that necessary configuration exists"""
-    provider = os.getenv("LLM_PROVIDER", "anthropic")
+    # Check if provider is set at all first
+    provider = os.getenv("LLM_PROVIDER")
     
-    # Map provider to required env var
-    required_vars = {
-        "anthropic": "ANTHROPIC_API_KEY",
-        "openai": "OPENAI_API_KEY",
-        "google": "GOOGLE_API_KEY",
-    }
-    
-    # Ollama usually doesn't need a key, just a URL which defaults
-    if provider == "ollama":
+    # If explicitly set (or auto-detected), validate it
+    if provider:
+        required_vars = {
+            "anthropic": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "google": "GOOGLE_API_KEY",
+        }
+        
+        if provider == "ollama":
+            return True
+            
+        env_var = required_vars.get(provider)
+        if env_var and not os.getenv(env_var):
+            print(f"\n❌ Error: Missing API Key for provider '{provider}'")
+            print(f"👉 Please set {env_var} in your .env file")
+            print(f"   OR pass it via CLI: --api-key <key>")
+            return False
         return True
-        
-    env_var = required_vars.get(provider)
-    if not env_var:
-        return True # Unknown provider, let it fail downstream or assume custom setup
-        
-    if not os.getenv(env_var):
-        print(f"\n❌ Error: Missing API Key for provider '{provider}'")
-        print(f"👉 Please set {env_var} in your .env file")
-        print(f"   OR pass it via CLI: --api-key <key>")
-        print(f"\nExample: python src/main.py --provider {provider} --api-key sk-...\n")
-        return False
-        
-    return True
+
+    # If NO provider set (and no auto-detect succeed), check default fallback (anthropic)
+    # But wait, we want to be "open" to any.
+    # If we are here, it means LLM_PROVIDER is unset AND no known keys were found in configure_environment.
+    
+    print("\n❌ Error: No LLM Provider configured.")
+    print("👉 Please set one of the following in your .env file:")
+    print("   - ANTHROPIC_API_KEY (for Claude)")
+    print("   - OPENAI_API_KEY    (for GPT)")
+    print("   - GOOGLE_API_KEY    (for Gemini)")
+    print("\nOr start with specific provider:")
+    print("   python src/main.py --provider google --api-key ...")
+    return False
 
 
 def main():
@@ -170,7 +215,7 @@ def main():
         from src.graph import run_simple_agent
 
         async def cli_loop():
-            print(f"🤖 Reactive Shell Agent (CLI Mode)")
+            print(f"🤖 ReACTOR (CLI Mode)")
             print(f"   Provider: {os.getenv('LLM_PROVIDER', 'anthropic')}")
             print(f"   Model:    {os.getenv('LLM_MODEL', 'default')}")
             
@@ -190,7 +235,7 @@ def main():
         # Run TUI version (default)
         from src.tui.app import run_tui
 
-        run_tui()
+        run_tui(debug_mode=args.debug)
         return 0
 
 

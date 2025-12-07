@@ -1,8 +1,8 @@
-# Reactive Shell Agent - Technical Documentation
+# ReACTOR - Technical Documentation
 
 ## Project Overview
 
-**Reactive Shell Agent** is an intelligent, LLM-powered shell automation tool that bridges the gap between natural language and command-line operations. Unlike traditional shell assistants that simply execute commands, this agent features a **dual-mode architecture** that can both analyze your projects intelligently and execute tasks safely.
+**ReACTOR** is an intelligent, LLM-powered shell automation tool that bridges the gap between natural language and command-line operations. Unlike traditional shell assistants that simply execute commands, this agent features a **dual-mode architecture** that can both analyze your projects intelligently and execute tasks safely.
 
 ### Vision
 

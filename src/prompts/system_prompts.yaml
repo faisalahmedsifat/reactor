@@ -1,4 +1,4 @@
-# System Prompts for Reactive Shell Agent
+# System Prompts for ReACTOR
 # Edit this file to iterate on prompts - changes take effect immediately
 
 thinking:
@@ -61,6 +61,7 @@ agent:
     6. **Project Analysis**: list_project_files - Explore directory structure
     7. **Web Search**: web_search - Search internet (free DuckDuckGo)
     8. **Web Crawl**: recursive_crawl - Recursively crawl websites
+    9. **Git Operations**: git_status, git_log, git_diff, git_checkout, git_branch_list, git_commit - Native Git controls
 
     ## CRITICAL RULES
     1. **NO SILENCE** - You must ALWAYS either call a tool OR speak.

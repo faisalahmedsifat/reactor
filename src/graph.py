@@ -11,7 +11,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
 
 from src.state import ShellAgentState
-from src.tools import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools
+from src.tools import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools, git_tools
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 import os
 
@@ -48,6 +48,14 @@ def create_simple_shell_agent():
         grep_and_log_tools.extract_json_fields,
         grep_and_log_tools.filter_command_output,
         grep_and_log_tools.analyze_error_logs,
+        # Git Tools
+        git_tools.git_status,
+        git_tools.git_log,
+        git_tools.git_diff,
+        git_tools.git_branch_list,
+        git_tools.git_checkout,
+        git_tools.git_commit,
+        git_tools.git_show,
     ]
 
     # ============= NODES =============
@@ -118,10 +126,12 @@ def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
                 text_content += block.text
         content = text_content
     
-    if "task complete" in str(content).lower():
+    # If the agent returned content (text) without tools, we consider the turn complete
+    # This avoids infinite loops like "Hi" -> "Thinking" -> "Hi"
+    if content and str(content).strip():
         return "end"
 
-    # Otherwise, loop back to thinking (Agent might have just chatted, so we force more thought)
+    # Fallback: If no tools and no content, maybe force thinking?
     return "thinking"
 
 

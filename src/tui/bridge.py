@@ -9,30 +9,39 @@ from src.graph import create_simple_shell_agent
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from src.state import ShellAgentState
 from src.models import ExecutionResult
-from src.logger import chat_logger
 
-# Setup logging
-logger = logging.getLogger(__name__)
 
 
 class AgentBridge:
     """Bridge to connect TUI with LangGraph Agent (Simple/ReAct version)"""
 
-    def __init__(self, tui_app: Any):
+    def __init__(self, tui_app: Any, debug_mode: bool = False):
         """Initialize bridge with reference to TUI app"""
-        logger.info("AgentBridge initializing")
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("AgentBridge initializing")
+        
         self.tui_app = tui_app
+        self.debug_mode = debug_mode
         self.graph = create_simple_shell_agent()
         self.thread_id = "tui-session"
         self.running = False
-        logger.info("AgentBridge initialized")
+
+        # Conditional chat logger setup
+        if self.debug_mode:
+            from src.logger import ConversationLogger
+            self.chat_logger = ConversationLogger(log_file="conversation_history.md")
+        else:
+            from src.logger import ConversationLogger
+            self.chat_logger = ConversationLogger(log_file=None)
+
+        self.logger.info("AgentBridge initialized")
 
     async def process_request(
         self, user_request: str, execution_mode: str = "sequential"
     ) -> None:
         """Process user request through agent"""
-        logger.info(f"Bridge.process_request called with: '{user_request}'")
-        chat_logger.log_turn("user", user_request)
+        self.logger.info(f"Bridge.process_request called with: '{user_request}'")
+        self.chat_logger.log_turn("user", user_request)
         self.running = True
 
         # Initialize state compatibly with simple graph
@@ -67,7 +76,7 @@ class AgentBridge:
             ):
                 event_count += 1
                 for node_name, node_output in event.items():
-                    logger.info(f"Processing node: {node_name}")
+                    self.logger.info(f"Processing node: {node_name}")
 
                     if node_name == "thinking":
                         await self.handle_thinking_node(node_output)
@@ -79,7 +88,7 @@ class AgentBridge:
                     # Always call the standard handler too for generic updates
                     await self.tui_app.on_node_update(node_name, node_output)
 
-            logger.info("Agent execution completed")
+            self.logger.info("Agent execution completed")
 
             # Fetch final state to pass to on_agent_complete
             state = await self.graph.aget_state(config)
@@ -89,11 +98,11 @@ class AgentBridge:
             import traceback
 
             error_msg = f"{str(e)}\\n{traceback.format_exc()}"
-            logger.error(f"Exception in bridge: {error_msg}")
+            self.logger.error(f"Exception in bridge: {error_msg}")
             await self.tui_app.on_agent_error(error_msg)
         finally:
             self.running = False
-            logger.info("Bridge processing complete")
+            self.logger.info("Bridge processing complete")
 
     async def handle_thinking_node(self, node_output: dict) -> None:
         """Handle output from difference thinking node"""
@@ -129,7 +138,7 @@ class AgentBridge:
                 dashboard = self.tui_app.query_one("AgentDashboard")
                 log_viewer = dashboard.query_one("#log-viewer")
                 log_viewer.add_log(content_text, "thought")
-                chat_logger.log_turn("agent", f"Thinking: {content_text}")
+                self.chat_logger.log_turn("agent", f"Thinking: {content_text}")
 
     async def handle_agent_node(self, node_output: dict) -> None:
         """Handle output from the Agent (Tool Selector) node"""
@@ -161,7 +170,7 @@ class AgentBridge:
                     dashboard = self.tui_app.query_one("AgentDashboard")
                     log_viewer = dashboard.query_one("#log-viewer")
                     log_viewer.add_log(content_text, "agent")
-                    chat_logger.log_turn("agent", content_text)
+                    self.chat_logger.log_turn("agent", content_text)
 
                 # Check for tool calls (The main purpose of this node now)
                 if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
@@ -186,7 +195,7 @@ class AgentBridge:
                                 )
                                 live_panel.start_monitoring(cmd)
                             except Exception as e:
-                                logger.error(f"Failed to set live panel: {e}")
+                                self.logger.error(f"Failed to set live panel: {e}")
                         elif tool_name in ["write_file", "modify_file", "read_file_content"]:
                             fpath = (
                                 args.get("target_file")
@@ -230,13 +239,13 @@ class AgentBridge:
 
         for msg in messages:
             if isinstance(msg, ToolMessage):
-                logger.info(f"Processing ToolMessage: {msg.name} id={msg.tool_call_id}")
+                self.logger.info(f"Processing ToolMessage: {msg.name} id={msg.tool_call_id}")
                 await self.process_tool_result(msg)
 
     async def process_tool_result(self, tool_msg: ToolMessage) -> None:
         """Process a single tool result for UI updates"""
         tool_name = tool_msg.name
-        logger.info(f"Bridge processing tool result for: {tool_name}")
+        self.logger.info(f"Bridge processing tool result for: {tool_name}")
 
         # We primarily care about execution results for the specialized UI panels
         if tool_name == "execute_shell_command":
@@ -245,7 +254,7 @@ class AgentBridge:
 
             # If artifact is string (sometimes happens with simple tools), try to parse or log warning
             if isinstance(result_data, str):
-                logger.warning(f"Tool artifact is string: {result_data}")
+                self.logger.warning(f"Tool artifact is string: {result_data}")
                 return
 
             if isinstance(result_data, dict):
@@ -269,7 +278,7 @@ class AgentBridge:
                     # Force visibility via style if class removal isn't enough
                     live_panel.styles.display = "block"
                 except Exception as e:
-                    logger.error(f"Failed to update LiveExecutionPanel: {e}")
+                    self.logger.error(f"Failed to update LiveExecutionPanel: {e}")
 
                 # 2. Results List
                 try:
@@ -278,7 +287,7 @@ class AgentBridge:
                     self.tui_app.execution_results.append(exec_result)
                     results_panel.update_results(self.tui_app.execution_results)
                 except Exception as e:
-                    logger.error(f"Failed to update ResultsPanel: {e}")
+                    self.logger.error(f"Failed to update ResultsPanel: {e}")
 
         elif tool_name in ["create_todo", "complete_todo", "update_todo", "list_todos"]:
             # Update TODO Panel
@@ -289,10 +298,10 @@ class AgentBridge:
                 # accessing .todos directly or via updating method if it exists
                 # The widget has update_todos method
                 todos = get_todos_for_ui()
-                logger.info(f"Updating TODOPanel with {len(todos)} items")
+                self.logger.info(f"Updating TODOPanel with {len(todos)} items")
                 todo_panel.update_todos(todos)
             except Exception as e:
-                logger.error(f"Failed to update TODOPanel: {e}")
+                self.logger.error(f"Failed to update TODOPanel: {e}")
 
     async def provide_approval(self, approved: bool) -> None:
         """Provide approval decision to agent (Pass-through for interface compatibility)"""

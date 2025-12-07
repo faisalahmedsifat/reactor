@@ -1,9 +1,10 @@
 """
-Powerhouse TUI Application for Reactive Shell Agent
+Powerhouse TUI Application for ReACTOR
 """
 
 import logging
 import time
+import sys
 from typing import List
 from textual.app import App, ComposeResult
 from textual import work, on
@@ -63,16 +64,13 @@ class StatusBar(Static):
         return f" {self.status} | State: {self.agent_state} | Mode: {mode_display} "
 
 
-# Setup logging
-logging.basicConfig(level=logging.DEBUG, filename="debug_tui.log", filemode="w")
-logger = logging.getLogger(__name__)
 
 
 class ShellAgentTUI(App):
-    """Powerhouse TUI for Reactive Shell Agent"""
+    """Powerhouse TUI for ReACTOR"""
 
     CSS_PATH = "styles.tcss"
-    TITLE = "Reactive Shell Agent IDE"
+    TITLE = "ReACTOR IDE"
 
     BINDINGS = [
         Binding("ctrl+c", "request_quit", "Quit", priority=True),
@@ -87,13 +85,22 @@ class ShellAgentTUI(App):
     show_sidebar = reactive(True)
     show_context = reactive(True)
 
-    def __init__(self):
+    def __init__(self, debug_mode: bool = False):
         super().__init__()
+        self.debug_mode = debug_mode
         self.bridge = AgentBridge(self)
         self.state = TUIState()
         self.execution_results: List[ExecutionResult] = []
         self.agent_worker = None  # Track running agent worker
         self.last_quit_time = 0.0
+
+        # Conditional logging setup
+        if self.debug_mode:
+            logging.basicConfig(level=logging.DEBUG, filename="debug_tui.log", filemode="w")
+        else:
+            # Configure a basic logger that outputs to console for production
+            logging.basicConfig(level=logging.INFO, stream=sys.stdout, format='%(levelname)s:%(name)s:%(message)s')
+        self.logger = logging.getLogger(__name__)
 
     def action_request_quit(self) -> None:
         """Handle quit request with double-press confirmation"""
@@ -109,9 +116,9 @@ class ShellAgentTUI(App):
         try:
             import pyperclip
             pyperclip.copy(text)
-            logger.info("Copied to clipboard via pyperclip")
+            self.logger.info("Copied to clipboard via pyperclip")
         except Exception as e:
-            logger.warning(f"Pyperclip copy failed: {e}")
+            self.logger.warning(f"Pyperclip copy failed: {e}")
             # Fallback to Textual's default (OSC 52)
             super().copy_to_clipboard(text)
 
@@ -145,15 +152,15 @@ class ShellAgentTUI(App):
 
     def on_mount(self) -> None:
         """Initialize"""
-        logger.info("TUI Mounted")
+        self.logger.info("TUI Mounted")
         
         # Fresh Session: Clear Todo State
         try:
             from src.tools.todo_tools import reset_todos
             reset_todos()
-            logger.info("Cleared session todos")
+            self.logger.info("Cleared session todos")
         except Exception as e:
-            logger.error(f"Failed to reset todos: {e}")
+            self.logger.error(f"Failed to reset todos: {e}")
 
         # Clear Live Log
         live_log = Path(".reactor_live_output.log").resolve()
@@ -240,7 +247,7 @@ class ShellAgentTUI(App):
             code_viewer.load_file(path)
 
             # Switch to Code tab
-            logger.info(f"Opened file via fuzzy finder: {path}")
+            self.logger.info(f"Opened file via fuzzy finder: {path}")
 
     def on_command_palette_selected(self, event: CommandPalette.Selected) -> None:
         """Handle command selection from command palette"""
@@ -250,7 +257,7 @@ class ShellAgentTUI(App):
         elif event.action == "quit":
             self.exit()
         else:
-            logger.warning(f"Unknown command palette action: {event.action}")
+            self.logger.warning(f"Unknown command palette action: {event.action}")
 
     # --- File Reference Modal Handlers ---
 
@@ -317,7 +324,7 @@ class ShellAgentTUI(App):
         self, event: DirectoryTree.FileSelected
     ) -> None:
         """Handle file selection from FileExplorer"""
-        logger.info(f"App received file selection: {event.path}")
+        self.logger.info(f"App received file selection: {event.path}")
         event.stop()
         filepath = str(event.path)
 
@@ -356,7 +363,7 @@ class ShellAgentTUI(App):
             # code_viewer.show_file(event.path.name, content, language)
             
             # Log action
-            logger.info(f"File selected: {event.path.name} (CodeViewer disabled)")
+            self.logger.info(f"File selected: {event.path.name} (CodeViewer disabled)")
             self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
                 f"📂 Selected: {event.path.name}", "info"
             )
@@ -366,7 +373,7 @@ class ShellAgentTUI(App):
                 f"⚠️ Cannot open binary file: {event.path.name}", "warning"
             )
         except Exception as e:
-            logger.error(f"Failed to open file {filepath}: {e}")
+            self.logger.error(f"Failed to open file {filepath}: {e}")
             self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
                 f"❌ Error opening file: {e}", "error"
             )
@@ -427,15 +434,15 @@ class ShellAgentTUI(App):
                     content = f.read()
                 # For now, just log the file open
                 # DiffViewer will show diffs when files are modified
-                logger.info(f"Opened file: {path}")
+                self.logger.info(f"Opened file: {path}")
             except Exception as e:
-                logger.error(f"Error opening file {path}: {e}")
+                self.logger.error(f"Error opening file {path}: {e}")
 
     def on_agent_dashboard_execution_mode_toggled(
         self, message: "AgentDashboard.ExecutionModeToggled"
     ) -> None:
         """Handle execution mode toggle from dashboard"""
-        logger.info(f"Execution mode changed to: {message.mode}")
+        self.logger.info(f"Execution mode changed to: {message.mode}")
         # Update status bar
         self.query_one(StatusBar).execution_mode = message.mode
         # Update TUI state
@@ -445,7 +452,7 @@ class ShellAgentTUI(App):
         self.query_one(StatusBar).agent_state = "thinking"
 
     async def on_node_update(self, node_name: str, node_output: dict) -> None:
-        logger.info(f"Node Update: {node_name}, data: {list(node_output.keys())}")
+        self.logger.info(f"Node Update: {node_name}, data: {list(node_output.keys())}")
         dashboard = self.query_one(AgentDashboard)
         log_viewer = dashboard.query_one("#log-viewer")
 
@@ -491,7 +498,7 @@ class ShellAgentTUI(App):
                 log_viewer.add_log("⚠️ No conversation to compact", "info")
         except Exception as e:
             log_viewer.add_log(f"❌ Error compacting: {str(e)}", "error")
-            logger.error(f"Compaction error: {e}")
+            self.logger.error(f"Compaction error: {e}")
 
     async def on_agent_complete(self, state: dict) -> None:
         self.query_one(StatusBar).agent_state = "complete"
@@ -512,8 +519,8 @@ class ShellAgentTUI(App):
 
 
 
-def run_tui():
-    app = ShellAgentTUI()
+def run_tui(debug_mode: bool = False):
+    app = ShellAgentTUI(debug_mode=debug_mode)
     app.run()
 
 

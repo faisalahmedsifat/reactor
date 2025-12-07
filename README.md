@@ -1,4 +1,4 @@
-# Reactive Shell Agent
+# ReACTOR
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -8,7 +8,7 @@ An intelligent, conversational shell automation agent powered by LLMs (Large Lan
 
 ## 🌟 Overview
 
-Reactive Shell Agent is a **dual-mode AI assistant** that can both:
+ReACTOR is a **dual-mode AI assistant** that can both:
 1. **Analyze Projects** - Intelligently read and understand your codebase without executing commands
 2. **Execute Tasks** - Generate and run shell commands safely with human-in-the-loop approval
 
