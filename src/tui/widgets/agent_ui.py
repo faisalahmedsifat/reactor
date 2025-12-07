@@ -245,7 +245,8 @@ class LiveExecutionPanel(Vertical):
         import logging
         logger = logging.getLogger(__name__)
         try:
-            log_path = Path(".reactor_live_output.log").resolve()
+            import tempfile
+            log_path = Path(tempfile.gettempdir()) / "reactor_live_output.log"
             if log_path.exists():
                 content = log_path.read_text(encoding="utf-8")
                 # Truncate if too long

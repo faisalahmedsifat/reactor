@@ -163,7 +163,8 @@ class ShellAgentTUI(App):
             self.logger.error(f"Failed to reset todos: {e}")
 
         # Clear Live Log
-        live_log = Path(".reactor_live_output.log").resolve()
+        import tempfile
+        live_log = Path(tempfile.gettempdir()) / "reactor_live_output.log"
         if live_log.exists():
             try:
                 live_log.unlink()

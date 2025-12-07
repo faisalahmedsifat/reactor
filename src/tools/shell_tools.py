@@ -132,8 +132,9 @@ async def execute_shell_command(
     """
     start = time.time()
     
-    # Live output log file - Use absolute path in CWD
-    live_log_path = Path(".reactor_live_output.log").resolve()
+    import tempfile
+    # Live output log file - Use absolute path in temp dir
+    live_log_path = Path(tempfile.gettempdir()) / "reactor_live_output.log"
 
     if dry_run:
         return {

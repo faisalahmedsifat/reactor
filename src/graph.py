@@ -85,13 +85,6 @@ def create_simple_shell_agent():
     checkpointer = MemorySaver()
     compiled = workflow.compile(checkpointer=checkpointer)
 
-    # Save graph
-    try:
-        image = compiled.get_graph().draw_mermaid_png()
-        with open("shell_agent_graph_simple.png", "wb") as f:
-            f.write(image)
-    except Exception:
-        pass
 
     return compiled
 
