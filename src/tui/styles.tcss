@@ -208,17 +208,7 @@ LiveExecutionPanel {
     overflow-y: auto;
 }
 
-LiveExecutionPanel {
-    display: none;
-}
-
-LiveExecutionPanel.-visible {
-    display: block;
-}
-
-LiveExecutionPanel.-hidden {
-    display: none;
-}
+/* LiveExecutionPanel visibility is managed by class or default block */
 
 /* Execution Plan Display */
 ExecutionPlanDisplay {
@@ -363,4 +353,56 @@ FileReferenceModal {
 
 #file-ref-list > ListItem:hover {
     background: $accent-cyan 20%;
+}
+
+/* --- Right Panel Widgets --- */
+
+/* Diff Viewer Container */
+/* Diff Viewer Container (Now at bottom) */
+#right-panel {
+    height: 1fr; /* Take remaining space */
+    min-height: 10;
+    margin-bottom: 0;
+}
+
+/* CodeViewer Widget */
+CodeViewer {
+    background: $bg-secondary;
+    border: solid $accent-cyan;
+    padding: 0;
+    height: 100%;
+}
+
+.diff-header {
+    background: $bg-tertiary;
+    color: $accent-cyan;
+    padding: 0 1;
+    text-style: bold;
+    dock: top;
+    height: 1;
+}
+
+.diff-empty {
+    color: $text-dim;
+    text-align: center;
+    padding: 2;
+}
+
+/* Live Execution Panel - Make visible by default */
+LiveExecutionPanel {
+    background: $bg-secondary;
+    border: solid $accent-yellow;
+    padding: 1;
+    height: auto;
+    max-height: 30;
+    overflow-y: auto;
+    display: block; /* Changed from none to block */
+}
+
+/* TODOPanel (Now at top) */
+TODOPanel {
+    background: $bg-secondary;
+    border: solid $accent-purple;
+    height: 35%; /* Fixed percentage */
+    padding: 0;
 }

@@ -11,8 +11,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
 
 from src.state import ShellAgentState
-from src.tools import shell_tools, file_tools, web_tools
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from src.tools import shell_tools, file_tools, web_tools, todo_tools
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 import os
 
 
@@ -37,6 +37,10 @@ def create_simple_shell_agent():
         file_tools.search_in_files,  # grep-like search
         web_tools.web_search,
         web_tools.recursive_crawl,
+        todo_tools.create_todo,
+        todo_tools.complete_todo,
+        todo_tools.list_todos,
+        todo_tools.update_todo,
     ]
 
     # ============= NODES =============
@@ -99,35 +103,53 @@ async def agent_node(state: ShellAgentState) -> ShellAgentState:
         file_tools.search_in_files,  # grep-like search
         web_tools.web_search,
         web_tools.recursive_crawl,
+        todo_tools.create_todo,
+        todo_tools.complete_todo,
+        todo_tools.list_todos,
+        todo_tools.update_todo,
     ]
 
     llm_with_tools = llm_client.bind_tools(all_tools)
 
     # Add system message if first interaction
+    # Add system message if not present
     messages = state["messages"]
-    if len(messages) == 1 and isinstance(messages[0], HumanMessage):
-        system_info = state.get("system_info")
-        if not system_info:
-            # Get system info first
-            system_info = await shell_tools.get_system_info.ainvoke({})
-            state["system_info"] = system_info
+    has_system = (
+        len(messages) > 0
+        and isinstance(messages[0], AIMessage)
+        and "System Prompts" in str(messages[0].content)
+    )  # Heuristic
+    # Better check: The graph state messages list usually starts with HumanMessage.
+    # We want to prepend the system prompt for the LLM call, effectively making it transient for the call
+    # or we can check if we need to inject it.
 
-        # Load prompt from centralized system
-        from src.prompts import get_prompt
+    # In this simple graph, we construct the prompt for every call to ensure context
+    system_info = state.get("system_info")
+    if not system_info:
+        # Get system info first
+        system_info = await shell_tools.get_system_info.ainvoke({})
+        state["system_info"] = system_info
 
-        system_message = AIMessage(
-            content=get_prompt(
-                "agent.system",
-                os_type=system_info["os_type"],
-                shell_type=system_info["shell_type"],
-                working_directory=system_info["working_directory"],
-            )
-        )
+    # Load prompt from centralized system
+    from src.prompts import get_prompt
 
-        messages = [system_message] + messages
+    system_prompt_content = get_prompt(
+        "agent.system",
+        os_type=system_info["os_type"],
+        shell_type=system_info["shell_type"],
+        working_directory=system_info["working_directory"],
+    )
+
+    system_message = SystemMessage(content=system_prompt_content)
+
+    # Prepend system message to the history for this call
+    # We don't save it to state["messages"] to avoid cluttering history with repeated system prompts
+    # unless we want to persist it.
+    # For this simplified ReAct loop, prepending it for the invoke is standard.
+    messages_for_llm = [system_message] + messages
 
     # Invoke LLM
-    response = await llm_with_tools.ainvoke(messages)
+    response = await llm_with_tools.ainvoke(messages_for_llm)
 
     # Add response to messages
     state["messages"].append(response)

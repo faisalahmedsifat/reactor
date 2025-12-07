@@ -164,7 +164,8 @@ async def update_todo(
 
 
 def get_todos_for_ui() -> List[dict]:
-    """Get todos formatted for UI display"""
+    """Get todos formatted for UI display (reloads from disk to ensure sync)"""
+    _load_todos()
     return list(_todos.values())
 
 

@@ -163,15 +163,63 @@ class AgentBridge:
                         log_viewer = dashboard.query_one("#log-viewer")
 
                         # Use special formatting for different tools
+                        # Use special formatting for different tools
                         if tool_name == "execute_shell_command":
                             cmd = args.get("command", "unknown")
                             log_viewer.add_log(
                                 f"🛠️ Executing: `{cmd}`", "info", is_thought=True
                             )
-                        else:
+                            # IMMEDIATE FEEDBACK: Show in Live Panel
+                            try:
+                                live_panel = self.tui_app.query_one(
+                                    "LiveExecutionPanel"
+                                )
+                                # Manually set content to "Executing..." state
+                                from src.models import ExecutionResult
+
+                                placeholder = ExecutionResult(
+                                    command=cmd,
+                                    success=True,  # Tentative
+                                    stdout="...",
+                                    stderr="",
+                                    exit_code=0,
+                                    duration_ms=0,
+                                )
+                                live_panel.set_content(placeholder)
+                                # Override the render with a spinner or running text if possible,
+                                # but set_content will at least show the command name.
+                                live_panel.output = f"[bold yellow]Executing:[/bold yellow] {cmd}\n[dim]Waiting for output...[/dim]"
+                                live_panel.remove_class("-hidden")
+                                live_panel.styles.display = "block"
+                            except Exception as e:
+                                logger.error(f"Failed to set live panel: {e}")
+                        elif tool_name in ["write_file", "modify_file", "read_file_content"]:
+                            fpath = (
+                                args.get("target_file")
+                                or args.get("file_path")
+                                or "unknown"
+                            )
+                            basename = fpath.split("/")[-1] if fpath else "unknown"
+                            log_viewer.add_log(
+                                f"🛠️ File Op ({tool_name}): `{basename}`",
+                                "info",
+                                is_thought=True,
+                            )
+                            pass # CodeViewer update removed
                             log_viewer.add_log(
                                 f"🛠️ Using tool: {tool_name}", "info", is_thought=True
                             )
+
+        # Force a refresh of the Todo panel at the end of processing any tool
+        # This catches cases where the agent did multiple ops or finished a task
+        try:
+            from src.tools.todo_tools import get_todos_for_ui
+
+            todo_panel = self.tui_app.query_one("TODOPanel")
+            todos = get_todos_for_ui()
+            todo_panel.update_todos(todos)
+        except Exception:
+            pass
 
     async def handle_tools_node(self, node_output: dict) -> None:
         """Handle output from the Tools node"""
@@ -235,6 +283,20 @@ class AgentBridge:
                     results_panel.update_results(self.tui_app.execution_results)
                 except Exception as e:
                     logger.error(f"Failed to update ResultsPanel: {e}")
+
+        elif tool_name in ["create_todo", "complete_todo", "update_todo", "list_todos"]:
+            # Update TODO Panel
+            try:
+                from src.tools.todo_tools import get_todos_for_ui
+
+                todo_panel = self.tui_app.query_one("TODOPanel")
+                # accessing .todos directly or via updating method if it exists
+                # The widget has update_todos method
+                todos = get_todos_for_ui()
+                logger.info(f"Updating TODOPanel with {len(todos)} items")
+                todo_panel.update_todos(todos)
+            except Exception as e:
+                logger.error(f"Failed to update TODOPanel: {e}")
 
     async def provide_approval(self, approved: bool) -> None:
         """Provide approval decision to agent (Pass-through for interface compatibility)"""

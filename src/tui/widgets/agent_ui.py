@@ -224,10 +224,9 @@ class LiveExecutionPanel(Static):
             no_wrap=False,
         )
 
-        self.update(
-            Text.assemble(
-                header, stdout_header, stdout_content, stderr_header, stderr_content
-            )
+        # Store the rich text in the reactive variable to trigger render
+        self.output = Text.assemble(
+            header, stdout_header, stdout_content, stderr_header, stderr_content
         )
 
     def clear(self) -> None:

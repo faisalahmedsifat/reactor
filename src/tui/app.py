@@ -5,6 +5,7 @@ Powerhouse TUI Application for Reactive Shell Agent
 import logging
 from typing import List
 from textual.app import App, ComposeResult
+from textual import work, on
 from textual.containers import Container, Vertical
 from textual.widgets import Header, Input, Static
 from textual.binding import Binding
@@ -19,13 +20,24 @@ from src.tui.widgets import (
     FuzzyFinder,
     CommandPalette,
 )
+from textual.widgets import (
+    Header,
+    Footer,
+    Static,
+    Input,
+    Button,
+    Label,
+    Markdown,
+    TabbedContent,
+    TabPane,
+    Log,
+    DirectoryTree,
+)
 from src.tui.widgets.file_reference_modal import FileReferenceModal
-from src.tui.widgets.diff_viewer import DiffViewer
 from src.tui.widgets.todo_panel import TODOPanel
 from src.tui.widgets.agent_ui import (
     StateIndicator,
     LiveExecutionPanel,
-    ExecutionPlanDisplay,
 )
 from src.tui.bridge import AgentBridge
 from src.models import ExecutionResult, ExecutionPlan
@@ -58,7 +70,7 @@ class ShellAgentTUI(App):
     """Powerhouse TUI for Reactive Shell Agent"""
 
     CSS_PATH = "styles.tcss"
-    TITLE = "🤖 Reactive Shell Agent IDE"
+    TITLE = "Reactive Shell Agent IDE"
 
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit", priority=True),
@@ -100,15 +112,13 @@ class ShellAgentTUI(App):
 
             # Col 3: Context
             with Vertical(id="col-context"):
-                yield Static("CONTEXT / DRAFT", classes="panel-header")
-                with Container(id="right-panel"):
-                    yield DiffViewer(id="diff-viewer")
-                yield Static("LIVE OUTPUT", classes="panel-header")
-                yield LiveExecutionPanel(id="live-execution")
-                yield Static("EXECUTION PLAN", classes="panel-header")
-                yield ExecutionPlanDisplay(id="execution-plan")
                 yield Static("TODO TASKS", classes="panel-header")
                 yield TODOPanel(id="todo-panel")
+                yield Static("LIVE OUTPUT", classes="panel-header")
+                yield LiveExecutionPanel(id="live-execution")
+                yield Static("CONTEXT / DRAFT", classes="panel-header")
+                with Container(id="right-panel"):
+                    yield Static("Code Viewer Disabled", id="code-viewer-placeholder")
 
         # Footer
         yield StatusBar(id="status-bar")
@@ -237,7 +247,6 @@ class ShellAgentTUI(App):
 
             # Reset execution results
             self.execution_results = []
-            self.query_one(ExecutionPlanDisplay).update_plan(None)
 
             # Clear conversation in bridge (reset agent state)
             if hasattr(self.bridge, "reset_conversation"):
@@ -264,6 +273,65 @@ class ShellAgentTUI(App):
             log_viewer.add_log(
                 f"⚠️ Unknown command: {command}. Type /help for available commands.",
                 "warning",
+            )
+
+    @on(DirectoryTree.FileSelected)
+    async def on_directory_tree_file_selected(
+        self, event: DirectoryTree.FileSelected
+    ) -> None:
+        """Handle file selection from FileExplorer"""
+        logger.info(f"App received file selection: {event.path}")
+        event.stop()
+        filepath = str(event.path)
+
+        # Determine language for syntax highlighting
+        try:
+            # Simple check for binary or too large?
+            # Textual's DirectoryTree doesn't handle reading, just paths.
+            # We'll try to read it.
+            if event.path.stat().st_size > 1_000_000:  # 1MB limit
+                self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
+                    f"⚠️ File too large to open: {event.path.name}", "warning"
+                )
+                return
+
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Guess language
+            ext = event.path.suffix.lower()
+            lang_map = {
+                ".py": "python",
+                ".js": "javascript",
+                ".ts": "typescript",
+                ".json": "json",
+                ".md": "markdown",
+                ".css": "css",
+                ".html": "html",
+                ".sh": "bash",
+                ".yaml": "yaml",
+                ".yml": "yaml",
+            }
+            language = lang_map.get(ext, "text")
+
+            # Show in CodeViewer (Disabled)
+            # code_viewer = self.query_one("#code-viewer")
+            # code_viewer.show_file(event.path.name, content, language)
+            
+            # Log action
+            logger.info(f"File selected: {event.path.name} (CodeViewer disabled)")
+            self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
+                f"📂 Selected: {event.path.name}", "info"
+            )
+
+        except UnicodeDecodeError:
+            self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
+                f"⚠️ Cannot open binary file: {event.path.name}", "warning"
+            )
+        except Exception as e:
+            logger.error(f"Failed to open file {filepath}: {e}")
+            self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
+                f"❌ Error opening file: {e}", "error"
             )
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -294,7 +362,7 @@ class ShellAgentTUI(App):
 
             # Reset UI elements for new run
             self.execution_results = []
-            self.query_one(ExecutionPlanDisplay).update_plan(None)
+            self.execution_results = []
 
             # Prepare Live Execution Panel
             live_panel = self.query_one(LiveExecutionPanel)
@@ -352,13 +420,6 @@ class ShellAgentTUI(App):
         #     pass
 
         # Update Execution Plan
-        if (
-            "execution_plan" in node_output
-            and node_output["execution_plan"] is not None
-        ):
-            plan: ExecutionPlan = node_output["execution_plan"]
-            self.query_one(ExecutionPlanDisplay).update_plan(plan)
-
         # Update LiveExecutionPanel and ResultsPanel after a command
         if (
             node_name == "execute_command"
