@@ -22,9 +22,15 @@ dependencies = [
 [tool.poetry]
 packages = [{include = "src"}]
 
-[tool.poetry.scripts]
+[project.scripts]
 reactor = "src.main:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.2,<10.0.0)",
+    "black (>=25.11.0,<26.0.0)"
+]

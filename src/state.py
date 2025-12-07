@@ -3,8 +3,10 @@ from langgraph.graph import add_messages
 from langchain_core.messages import BaseMessage
 from src.models import CommandIntent, ExecutionPlan, ExecutionResult
 
+
 class ShellAgentState(TypedDict):
     """LangGraph state for shell automation"""
+
     messages: Annotated[Sequence[BaseMessage], add_messages]
     user_input: str
     system_info: Optional[dict]
@@ -19,4 +21,3 @@ class ShellAgentState(TypedDict):
     execution_mode: Literal["sequential", "parallel"]  # New: execution mode toggle
     max_retries: int  # New: configurable retry limit
     analysis_data: Optional[Dict[str, Any]]  # New: for analytical workflow
-

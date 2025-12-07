@@ -13,19 +13,19 @@ load_dotenv()
 
 def main():
     """Run the agent with TUI or CLI"""
-    
+
     # Check for API key
     if not os.getenv("GOOGLE_API_KEY"):
         print("❌ Error: GOOGLE_API_KEY not found in environment")
         print("Set it with: export GOOGLE_API_KEY='your-key-here'")
         return 1
-    
+
     # Check for CLI flag
     if "--cli" in sys.argv:
         # Run CLI version
         # Run CLI version
         from src.graph_simple import run_simple_agent
-        
+
         async def cli_loop():
             print("🤖 Reactive Shell Agent (CLI Mode)")
             while True:
@@ -38,11 +38,12 @@ def main():
                     await run_simple_agent(user_input)
                 except KeyboardInterrupt:
                     break
-        
+
         return asyncio.run(cli_loop())
     else:
         # Run TUI version (default)
         from src.tui.app import run_tui
+
         run_tui()
         return 0
 

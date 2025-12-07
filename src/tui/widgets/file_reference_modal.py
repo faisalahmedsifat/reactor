@@ -2,6 +2,7 @@
 File reference modal for @ mentions
 Simple modal screen that opens when user types @
 """
+
 from textual.screen import ModalScreen
 from textual.widgets import Input, ListView, ListItem, Label
 from textual.app import ComposeResult
@@ -13,9 +14,10 @@ import os
 
 class FileReferenceModal(ModalScreen):
     """Modal for selecting a file to reference with @"""
-    
+
     class FileSelected(Message):
         """File selected message"""
+
         def __init__(self, path: str):
             self.path = path
             super().__init__()
@@ -24,7 +26,7 @@ class FileReferenceModal(ModalScreen):
         super().__init__()
         self.root = root or Path.cwd()
         self.files = []
-    
+
     def compose(self) -> ComposeResult:
         with Container(id="file-ref-container"):
             yield Label("📁 Select File to Reference", id="file-ref-title")
@@ -42,9 +44,14 @@ class FileReferenceModal(ModalScreen):
         self.files = []
         for root, dirs, filenames in os.walk(self.root):
             # Skip hidden dirs
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['__pycache__', 'node_modules', 'venv']]
+            dirs[:] = [
+                d
+                for d in dirs
+                if not d.startswith(".")
+                and d not in ["__pycache__", "node_modules", "venv"]
+            ]
             for f in filenames:
-                if not f.startswith('.') and not f.endswith('.pyc'):
+                if not f.startswith(".") and not f.endswith(".pyc"):
                     file_path = Path(root) / f
                     rel_path = file_path.relative_to(self.root)
                     self.files.append(str(rel_path))
@@ -57,13 +64,13 @@ class FileReferenceModal(ModalScreen):
         """Update the displayed file list"""
         list_view = self.query_one(ListView)
         list_view.clear()
-        
+
         query_lower = query.lower()
         if query_lower:
             matches = [f for f in self.files if query_lower in f.lower()]
         else:
             matches = self.files
-        
+
         # Limit to 15 results
         for match in matches[:15]:
             list_view.append(ListItem(Label(match), name=match))
@@ -73,11 +80,11 @@ class FileReferenceModal(ModalScreen):
         if event.item and event.item.name:
             self.post_message(self.FileSelected(event.item.name))
             self.dismiss()
-    
+
     def on_key(self, event) -> None:
         """Handle keyboard navigation"""
         list_view = self.query_one(ListView)
-        
+
         if event.key == "escape":
             self.dismiss()
         elif event.key == "up":

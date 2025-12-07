@@ -1,5 +1,9 @@
 # Reactive Shell Agent
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 An intelligent, conversational shell automation agent powered by LLMs (Large Language Models) with a beautiful Textual TUI interface.
 
 ## 🌟 Overview
@@ -45,8 +49,8 @@ The agent features a **conversational interface** that communicates its understa
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/reactive-shell-agent.git
-cd reactive-shell-agent
+git clone https://github.com/faisalahmedsifat/reactor.git
+cd reactor
 
 # Install dependencies
 poetry install

@@ -6,11 +6,13 @@ from textual.message import Message
 from pathlib import Path
 import os
 
+
 class FuzzyFinder(ModalScreen):
     """Fuzzy file finder modal"""
-    
+
     class Selected(Message):
         """File selected message"""
+
         def __init__(self, path: Path):
             self.path = path
             super().__init__()
@@ -19,7 +21,7 @@ class FuzzyFinder(ModalScreen):
         super().__init__()
         self.root = root or Path.cwd()
         self.files = []
-    
+
     def compose(self) -> ComposeResult:
         with Container(id="fuzzy-container"):
             yield Label("Search Files", id="fuzzy-title")
@@ -31,11 +33,11 @@ class FuzzyFinder(ModalScreen):
         self.files = []
         for root, dirs, filenames in os.walk(self.root):
             # Skip hidden dirs like .git
-            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
             for f in filenames:
-                if not f.startswith('.'):
+                if not f.startswith("."):
                     self.files.append(Path(root) / f)
-        
+
         self.update_list("")
         self.query_one(Input).focus()
 
@@ -47,13 +49,17 @@ class FuzzyFinder(ModalScreen):
         """Update the ListView"""
         list_view = self.query_one(ListView)
         list_view.clear()
-        
+
         query = query.lower()
-        matches = [f for f in self.files if query in str(f.relative_to(self.root)).lower()]
-        
+        matches = [
+            f for f in self.files if query in str(f.relative_to(self.root)).lower()
+        ]
+
         # Limit results for performance
         for match in matches[:20]:
-            list_view.append(ListItem(Label(str(match.relative_to(self.root))), name=str(match)))
+            list_view.append(
+                ListItem(Label(str(match.relative_to(self.root))), name=str(match))
+            )
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle selection"""
@@ -61,15 +67,17 @@ class FuzzyFinder(ModalScreen):
             self.post_message(self.Selected(Path(event.item.name)))
             self.dismiss()
 
+
 class CommandPalette(ModalScreen):
     """Command palette modal"""
-    
+
     class Selected(Message):
         """Command selected message"""
+
         def __init__(self, action: str):
             self.action = action
             super().__init__()
-            
+
     COMMANDS = {
         "Toggle File Sidebar": "toggle_sidebar",
         "Toggle Context Panel": "toggle_context",
@@ -77,7 +85,7 @@ class CommandPalette(ModalScreen):
         "Clear Logs": "clear_logs",
         "Quit": "quit",
     }
-    
+
     def compose(self) -> ComposeResult:
         with Container(id="fuzzy-container"):
             yield Label("Command Palette", id="fuzzy-title")
@@ -94,7 +102,7 @@ class CommandPalette(ModalScreen):
     def update_list(self, query: str) -> None:
         list_view = self.query_one(ListView)
         list_view.clear()
-        
+
         query = query.lower()
         for name, action in self.COMMANDS.items():
             if query in name.lower():
