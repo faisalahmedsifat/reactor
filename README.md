@@ -116,21 +116,7 @@ Ask the agent to do something:
 
 ### Workflow Overview
 
-```
-User Input → Thinking Node (Reasoning & Planning)
-                  ↓
-          Agent Node (Tool Selection)
-                  ↓
-    ┌─────────────┴─────────────┐
-    ↓                           ↓
-  Tools                   Evaluation
-    ↓                           ↓
-  (Results)           Thinking Node (Analyze)
-    ↓                           ↓
-    └─────────────→─────────────┘
-                  ↓
-          Agent Summary → END
-```
+![ReACTOR Architecture](shell_agent_graph_simple.png)
 
 ### Key Components
 

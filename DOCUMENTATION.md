@@ -122,18 +122,7 @@ Enable developers to interact with their codebase and system using natural langu
 
 The agent uses a reliable **Thinking-Agent Loop** implemented in LangGraph:
 
-```mermaid
-graph TD
-    Start[User Input] --> Thinking[Thinking Node]
-    Thinking --> Agent[Agent Node]
-    
-    Agent -->|Call Tools| Tools[Tool Node]
-    Tools --> Thinking
-    
-    Agent -->|Action| EndCondition{Complete?}
-    EndCondition -->|No| Thinking
-    EndCondition -->|Yes| Finish[End Task]
-```
+![ReACTOR Architecture](shell_agent_graph_simple.png)
 
 ### Core Design Philosophy
 
