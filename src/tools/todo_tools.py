@@ -13,7 +13,8 @@ from pathlib import Path
 _todos: Dict[str, dict] = {}
 _todo_counter = 0
 
-TODO_FILE = Path("todo_state.json")
+TODO_DIR = Path.home() / ".reactor"
+TODO_FILE = TODO_DIR / "todo_state.json"
 
 
 def _load_todos():
@@ -28,6 +29,10 @@ def _load_todos():
 
 def _save_todos():
     """Save todos to file"""
+    # Ensure directory exists
+    if not TODO_DIR.exists():
+        TODO_DIR.mkdir(parents=True, exist_ok=True)
+
     with open(TODO_FILE, "w") as f:
         json.dump({"todos": _todos, "counter": _todo_counter}, f, indent=2)
 

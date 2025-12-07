@@ -107,8 +107,9 @@ class AgentBridge:
     async def handle_thinking_node(self, node_output: dict) -> None:
         """Handle output from difference thinking node"""
         # Debug trace
-        with open("debug_thoughts.log", "a") as f:
-            f.write(f"Thinking node RAW: {str(node_output)}\n")
+        if self.debug_mode:
+            with open("debug_thoughts.log", "a") as f:
+                f.write(f"Thinking node RAW: {str(node_output)}\n")
 
         if "messages" in node_output and node_output["messages"]:
             last_msg = node_output["messages"][-1]
@@ -131,8 +132,9 @@ class AgentBridge:
             elif isinstance(last_msg, dict):
                 content_text = last_msg.get("content", "")
             
-            with open("debug_thoughts.log", "a") as f:
-                f.write(f"Parsed Content ({msg_type}): {content_text[:50]}...\n")
+            if self.debug_mode:
+                with open("debug_thoughts.log", "a") as f:
+                    f.write(f"Parsed Content ({msg_type}): {content_text[:50]}...\n")
 
             if content_text.strip():
                 dashboard = self.tui_app.query_one("AgentDashboard")
