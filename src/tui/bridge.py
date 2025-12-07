@@ -5,7 +5,7 @@ Bridge between Textual TUI and LangGraph Agent (Simple/ReAct version)
 import asyncio
 import logging
 from typing import Optional, Callable, Any, List
-from src.graph_simple import create_simple_shell_agent
+from src.graph import create_simple_shell_agent
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from src.state import ShellAgentState
 from src.models import ExecutionResult

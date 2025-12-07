@@ -5,7 +5,7 @@ Automatically summarizes long conversations to manage token usage.
 
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from typing import List, Dict
-from src.nodes.llm_nodes import get_llm_client
+from src.llm.client import get_llm_client
 
 
 def estimate_token_count(messages: List[BaseMessage]) -> int:

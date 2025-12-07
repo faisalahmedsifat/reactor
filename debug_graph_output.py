@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage
 # Add src to path
 sys.path.append(os.getcwd())
 
-from src.graph_simple import create_simple_shell_agent
+from src.graph import create_simple_shell_agent
 
 async def main():
     print("🚀 Starting Debug Graph Output...")

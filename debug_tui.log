@@ -15,3 +15,377 @@ DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,
 DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
 DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
 DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.bridge:Bridge.process_request called with: '"I need a Python script to verify our error handling. Write a script that simulates a flaky backend service by logging random errors. Run it for a few seconds to fill up a log file, then analyze that log to tell me exactly what broke and how often. Finally, fix the script so it stops crashing."'
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+DEBUG:grpc._cython.cygrpc:Using AsyncIOEngine.POLLER as I/O engine
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: thinking
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 3, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=2,level=0,tokens=3), 2, 3, False
+INFO:src.tui.app:Node Update: thinking, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: agent
+INFO:src.tui.app:Node Update: agent, data: ['messages', 'system_info']
+INFO:src.tui.bridge:Processing node: tools
+INFO:src.tui.bridge:Processing ToolMessage: list_project_files id=db7d1eab-0523-453e-b24a-b96ede896cd2
+INFO:src.tui.bridge:Bridge processing tool result for: list_project_files
+INFO:src.tui.app:Node Update: tools, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: thinking
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: thinking, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: agent
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=1,level=0,tokens=0), 1, 4, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=3,level=0,tokens=3), 3, 4, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: agent, data: ['messages']
+WARNING:root:OVERWRITING existing file: flaky_service.py - All previous content will be lost!
+INFO:src.tui.bridge:Processing node: tools
+INFO:src.tui.bridge:Processing ToolMessage: write_file id=7fd9ac0b-4bcb-4bab-bca8-7a6a957e2822
+INFO:src.tui.bridge:Bridge processing tool result for: write_file
+INFO:src.tui.app:Node Update: tools, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: thinking
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: thinking, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: agent
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: agent, data: ['messages']
+INFO:src.tui.bridge:Processing node: tools
+INFO:src.tui.bridge:Processing ToolMessage: execute_shell_command id=3009a425-c502-4a76-809b-9c66f974643d
+INFO:src.tui.bridge:Bridge processing tool result for: execute_shell_command
+INFO:src.tui.app:Node Update: tools, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: thinking
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: thinking, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: agent
+INFO:src.tui.app:Node Update: agent, data: ['messages']
+INFO:src.tui.bridge:Processing node: tools
+INFO:src.tui.bridge:Processing ToolMessage: analyze_error_logs id=95623948-7da6-4677-a218-e3bf924f6f8f
+INFO:src.tui.bridge:Bridge processing tool result for: analyze_error_logs
+INFO:src.tui.app:Node Update: tools, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: thinking
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: thinking, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: agent
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: agent, data: ['messages']
+INFO:src.tui.bridge:Processing node: tools
+INFO:src.tui.bridge:Processing ToolMessage: modify_file id=b31f3865-b2a9-4ee8-8c87-27ec3774fc49
+INFO:src.tui.bridge:Bridge processing tool result for: modify_file
+INFO:src.tui.app:Node Update: tools, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: thinking
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: thinking, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: agent
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: agent, data: ['messages']
+INFO:src.tui.bridge:Processing node: tools
+INFO:src.tui.bridge:Processing ToolMessage: execute_shell_command id=ac5f7c92-c6f2-43f9-af96-ab3e2c87c3b2
+INFO:src.tui.bridge:Bridge processing tool result for: execute_shell_command
+INFO:src.tui.app:Node Update: tools, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: thinking
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.app:Node Update: thinking, data: ['messages']
+DEBUG:grpc._cython.cygrpc:[_cygrpc] Loaded running loop: id(loop)=133268922605520
+INFO:src.tui.bridge:Processing node: agent
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=1,level=0,tokens=0), 1, 13, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=3,level=0,tokens=3), 3, 13, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=5,level=0,tokens=6), 5, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=5,level=0,tokens=6), 5, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=5,level=0,tokens=6), 5, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=5,level=0,tokens=6), 5, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=5,level=0,tokens=6), 5, 13, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=5,level=2,tokens=8), 6, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=5,level=2,tokens=8), 6, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=5,level=2,tokens=8), 6, 13, True
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=5,level=2,tokens=8), 6, 13, True
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=5,level=2,tokens=8), 5, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=5,level=2,tokens=8), 6, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=5,level=2,tokens=8), 6, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=5,level=2,tokens=8), 6, 13, True
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=5,level=2,tokens=8), 6, 13, True
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=6,level=1,tokens=12), 6, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=6,level=1,tokens=12), 6, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=6,level=1,tokens=12), 6, 13, True
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=6,level=2,tokens=13), 7, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=6,level=2,tokens=13), 7, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=6,level=2,tokens=13), 7, 13, True
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=6,level=2,tokens=13), 7, 13, True
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=6,level=2,tokens=13), 6, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=6,level=2,tokens=13), 7, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=6,level=2,tokens=13), 7, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=6,level=2,tokens=13), 7, 13, True
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=6,level=2,tokens=13), 7, 13, True
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=7,level=1,tokens=17), 7, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=7,level=1,tokens=17), 7, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=7,level=1,tokens=17), 7, 13, True
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=7,level=2,tokens=18), 8, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=7,level=2,tokens=18), 8, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=7,level=2,tokens=18), 8, 13, True
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=7,level=2,tokens=18), 8, 13, True
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=7,level=2,tokens=18), 7, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=7,level=2,tokens=18), 8, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=7,level=2,tokens=18), 8, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=7,level=2,tokens=18), 8, 13, True
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=7,level=2,tokens=18), 8, 13, True
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=8,level=1,tokens=22), 8, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=8,level=1,tokens=22), 8, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=8,level=1,tokens=22), 8, 13, True
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=8,level=2,tokens=23), 8, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=10,level=1,tokens=27), 10, 13, True
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=10,level=1,tokens=27), 10, 13, True
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=10,level=1,tokens=27), 10, 13, True
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=10,level=0,tokens=28), 10, 13, False
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=12,level=0,tokens=31), 12, 13, False
+INFO:src.tui.app:Node Update: agent, data: ['messages']
+INFO:src.tui.bridge:Agent execution completed
+DEBUG:markdown_it.rules_block.code:entering code: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.fence:entering fence: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.blockquote:entering blockquote: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.hr:entering hr: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.list:entering list: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.reference:entering reference: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.html_block:entering html_block: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.heading:entering heading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.lheading:entering lheading: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+DEBUG:markdown_it.rules_block.paragraph:entering paragraph: StateBlock(line=0,level=0,tokens=0), 0, 1, False
+INFO:src.tui.bridge:Bridge processing complete

@@ -6,7 +6,7 @@ Nodes for pure logical reasoning without tool execution.
 
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage, ToolMessage
 from src.state import ShellAgentState
-from src.nodes.llm_nodes import get_llm_client
+from src.llm.client import get_llm_client
 from src.tools import shell_tools, file_tools, web_tools, todo_tools
 
 

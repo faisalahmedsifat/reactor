@@ -1,0 +1,44 @@
+
+
+========================================
+--- Executing: python3 flaky_service.py ---
+--- Directory: . ---
+========================================
+Simulating flaky service. Press Ctrl+C to stop.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Script crashed unexpectedly: Critical service failure: ConnectionError: Failed to connect to database
+Simulation finished.
+
+
+========================================
+--- Executing: python3 flaky_service.py ---
+--- Directory: . ---
+========================================
+Simulating flaky service. Press Ctrl+C to stop.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Service call successful.
+Simulation finished.

@@ -24,7 +24,7 @@ def main():
     if "--cli" in sys.argv:
         # Run CLI version
         # Run CLI version
-        from src.graph_simple import run_simple_agent
+        from src.graph import run_simple_agent
 
         async def cli_loop():
             print("🤖 Reactive Shell Agent (CLI Mode)")
