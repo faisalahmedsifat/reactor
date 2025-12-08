@@ -38,42 +38,35 @@ The agent features a **conversational interface** that communicates its understa
 - Color-coded messages with special formatting
 - Real-time execution output and results
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.10+
-- Poetry (for dependency management)
-- An LLM API key (Claude or OpenAI)
+## 🚀 Getting Started
 
 ### Installation
 
+You can install ReACTOR directly using pip:
+
 ```bash
-# Clone the repository
-git clone https://github.com/faisalahmedsifat/reactor.git
-cd reactor
-
-# Install dependencies
-poetry install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env and add your API keys
+pip install git+https://github.com/faisalahmedsifat/reactor
 ```
 
-### Configuration
+### Initialization
 
-Create a `.env` file:
-```env
-LLM_PROVIDER=anthropic  # or openai
-LLM_MODEL=claude-sonnet-4-20250514
-ANTHROPIC_API_KEY=your_key_here
-# or OPENAI_API_KEY=your_key_here
+Initialize the project by selecting your model, provider, and API key:
+
+```bash
+reactor --model <model_name> --provider <provider_name> --api-key <your_api_key>
+```
+
+Example:
+```bash
+reactor --model claude-3-5-sonnet-latest --provider anthropic --api-key sk-ant-...
 ```
 
 ### Run
 
+Start the agent:
+
 ```bash
-poetry run python main.py
+reactor
 ```
 
 ## 📖 Usage
