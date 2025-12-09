@@ -46,7 +46,7 @@ venv.bak/
 *.tar.gz
 *.whl
 # Project specific - User/project agents and skills
-.reactor/
+# .reactor/
 conversation_history.md
 debug*.log
 todo_state.json
