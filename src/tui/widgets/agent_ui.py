@@ -266,10 +266,11 @@ class LiveExecutionPanel(Vertical):
                     text_area.text = content
                     text_area.scroll_end(animate=False)
             else:
-               status = self.query_one("#live-status", Label)
-               status.update(f"Waiting for {log_path}...")
+                # File doesn't exist yet, which is fine if command hasn't started writing
+                pass
         except Exception as e:
-            logger.error(f"Poll error: {e}")
+            # Silent fail on poll to avoid spamming main log
+            pass
 
     def set_content(self, result: ExecutionResult) -> None:
         """Update panel content from an ExecutionResult."""

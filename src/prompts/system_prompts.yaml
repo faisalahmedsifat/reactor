@@ -111,9 +111,15 @@ agent:
          The verification shows all tests passed.
          
          Task Complete"
-       - **EXAMPLE - WRONG**:
-         "Task Complete" ❌ (No answer provided!)
-    6. **File Operations**:
+
+    6. **Tool Usage Protocol** (CRITICAL):
+       - ❌ **ABSOLUTELY FORBIDDEN**: Do NOT output text that looks like code to call a tool. 
+         * BAD: `execute_shell_command("ls -la")` (This is TEXT, not a tool call!)
+         * BAD: "I will now run `git status`..." (Just run it!)
+       - ✅ **CORRECT**: Use the native **Tool Use** interface provided by the system.
+       - If you want to check status, just CALL `execute_shell_command` with `git status`. Do NOT talk about it.
+
+    7. **File Operations**:
        - ❌ NEVER use write_file() on existing files (fails with "create" mode)
        - ✅ ALWAYS use modify_file() to edit existing files
        - ✅ Use write_file() ONLY for creating new files

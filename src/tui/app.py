@@ -100,8 +100,9 @@ class ShellAgentTUI(App):
         if self.debug_mode:
             logging.basicConfig(level=logging.DEBUG, filename="debug_tui.log", filemode="w")
         else:
-            # Configure a basic logger that outputs to console for production
-            logging.basicConfig(level=logging.INFO, stream=sys.stdout, format='%(levelname)s:%(name)s:%(message)s')
+            # Configure a NullHandler to suppress all logs when not debugging
+            # This prevents unwanted log files (like reactor.log) and console output
+            logging.basicConfig(level=logging.CRITICAL, handlers=[logging.NullHandler()])
         self.logger = logging.getLogger(__name__)
 
     def action_request_quit(self) -> None:

@@ -172,5 +172,13 @@ def compose_prompt(base_prompt: str, agent_name: Optional[str] = None, skill_nam
                 parts.append(f"\n\n# ACTIVE SKILLS\n\n{skill_instructions}")
         except Exception as e:
             print(f"Warning: Failed to load skills: {e}")
+            
+    # CRITICAL: Append runtime enforcement to the VERY END to override any agent-specific hallucinations
+    parts.append("""
+# ⚠️ REAL-TIME ENFORCEMENT ⚠️
+1. **TOOL USE MANDATE**: You MUST use the actual tool functions (e.g., `execute_shell_command`).
+2. **NO TEXT HALLUCINATION**: Do NOT write code blocks like `file_tools.read_file(...)`. calls must be creating using the Tool binding.
+3. **ACT NOW**: If you need to do something, CALL THE TOOL IMMEDIATELY. Do not just "plan" to do it.
+""")
     
     return "\n".join(parts)
