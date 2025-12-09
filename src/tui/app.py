@@ -162,6 +162,9 @@ class ShellAgentTUI(App):
         manager = AgentManager()
         manager.set_tui_callback(self.on_agent_message)
         
+        # Register callback for main thread streaming
+        self.bridge.set_message_callback(self.on_agent_message)
+        
         # Fresh Session: Clear Todo State
         try:
             from src.tools.todo_tools import reset_todos
@@ -506,8 +509,8 @@ class ShellAgentTUI(App):
             self.bridge.process_request(command, execution_mode), exclusive=True
         )
 
-    async def on_agent_message(self, agent_id: str, node_name: str, message) -> None:
-        """Handle real-time messages from spawned agents"""
+    async def on_agent_message(self, agent_id: str, event_type: str, data) -> None:
+        """Unified event handler for all agent events"""
         # Only update if we're currently viewing this agent
         if agent_id != self.current_agent_id:
             return
@@ -516,16 +519,70 @@ class ShellAgentTUI(App):
             dashboard = self.query_one(AgentDashboard)
             log_viewer = dashboard.query_one("#log-viewer")
             
-            # Extract content
-            content = message.content if hasattr(message, "content") else str(message)
+            # Handle message events (thinking/agent nodes)
+            if event_type in ["thinking", "agent"]:
+                content = data.content if hasattr(data, "content") else str(data)
+                log_type = "thought" if event_type == "thinking" else "agent"
+                if content and content.strip():
+                    log_viewer.add_log(content, log_type)
             
-            # Map node name to log type
-            log_type = "thought" if node_name == "thinking" else "agent"
+            # Handle tool_call events
+            elif event_type == "tool_call":
+                tool_name = data["tool_name"]
+                args = data["args"]
+                
+                if tool_name == "execute_shell_command":
+                    cmd = args.get("command", "unknown")
+                    log_viewer.add_log(f"🛠️ Executing: `{cmd}`", "info")
+                    try:
+                        self.query_one(LiveExecutionPanel).start_monitoring(cmd)
+                    except Exception as e:
+                        self.logger.error(f"Failed to start live monitoring: {e}")
+                elif tool_name in ["write_file", "modify_file", "read_file_content"]:
+                    fpath = args.get("target_file") or args.get("file_path") or "unknown"
+                    basename = fpath.split("/")[-1] if fpath else "unknown"
+                    log_viewer.add_log(f"🛠️ File Op ({tool_name}): `{basename}`", "info")
+                else:
+                    log_viewer.add_log(f"🛠️ Using tool: {tool_name}", "info")
             
-            if content and content.strip():
-                log_viewer.add_log(content, log_type)
+            # Handle tool_result events
+            elif event_type == "tool_result":
+                tool_name = data["tool_name"]
+                result = data["result"]
+                
+                if tool_name == "execute_shell_command" and isinstance(result, dict):
+                    exec_result = ExecutionResult(
+                        command=result.get("command", "[Unknown]"),
+                        success=result.get("success", False),
+                        stdout=str(result.get("stdout", "")),
+                        stderr=str(result.get("stderr", "")),
+                        exit_code=result.get("exit_code", 0),
+                        duration_ms=result.get("duration_ms", 0.0)
+                    )
+                    
+                    try:
+                        live_panel = self.query_one(LiveExecutionPanel)
+                        live_panel.set_content(exec_result)
+                        live_panel.remove_class("-hidden")
+                        live_panel.styles.display = "block"
+                    except Exception as e:
+                        self.logger.error(f"Failed to update LiveExecutionPanel: {e}")
+                    
+                    try:
+                        self.execution_results.append(exec_result)
+                    except Exception as e:
+                        self.logger.error(f"Failed to update results: {e}")
+                
+                elif tool_name in ["create_todo", "complete_todo", "update_todo", "list_todos"]:
+                    try:
+                        from src.tools.todo_tools import get_todos_for_ui
+                        todos = get_todos_for_ui()
+                        self.query_one(TODOPanel).update_todos(todos)
+                    except Exception as e:
+                        self.logger.error(f"Failed to update TODOPanel: {e}")
+        
         except Exception as e:
-            self.logger.error(f"Error handling agent message: {e}")
+            self.logger.error(f"Error handling agent event: {e}")
     
     async def on_active_agents_agent_selected(
         self, event: ActiveAgents.AgentSelected

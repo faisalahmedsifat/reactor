@@ -20,14 +20,19 @@ from src.nodes.thinking_nodes import thinking_node
 from src.nodes.agent_nodes import agent_node
 
 
-def create_simple_shell_agent():
-    """Build simplified LangGraph similar to Claude Code"""
+def create_simple_shell_agent(exclude_agent_tools: bool = False):
+    """Build simplified LangGraph similar to Claude Code
+    
+    Args:
+        exclude_agent_tools: If True, excludes agent management tools (spawn_agent, etc.).
+                            Set to True for sub-agents to prevent recursive spawning.
+    """
 
     workflow = StateGraph(ShellAgentState)
 
     # ============= TOOLS =============
-    # Combine all tools into one list
-    all_tools = [
+    # Base tools available to all agents
+    base_tools = [
         shell_tools.get_system_info,
         shell_tools.execute_shell_command,
         shell_tools.validate_command_safety,
@@ -35,7 +40,7 @@ def create_simple_shell_agent():
         file_tools.write_file,
         file_tools.modify_file,
         file_tools.list_project_files,
-        file_tools.search_in_files,  # grep-like search
+        file_tools.search_in_files,
         web_tools.web_search,
         web_tools.recursive_crawl,
         todo_tools.create_todo,
@@ -48,7 +53,6 @@ def create_simple_shell_agent():
         grep_and_log_tools.extract_json_fields,
         grep_and_log_tools.filter_command_output,
         grep_and_log_tools.analyze_error_logs,
-        # Git Tools
         git_tools.git_status,
         git_tools.git_log,
         git_tools.git_diff,
@@ -56,13 +60,22 @@ def create_simple_shell_agent():
         git_tools.git_checkout,
         git_tools.git_commit,
         git_tools.git_show,
-        # Agent Tools - Parallel agent execution
+    ]
+    
+    # Agent management tools - only for main agent, not sub-agents
+    agent_management_tools = [
         agent_tools.spawn_agent,
         agent_tools.get_agent_result,
         agent_tools.list_available_agents,
         agent_tools.list_running_agents,
         agent_tools.stop_agent,
     ]
+    
+    # Build final tool list based on context
+    if exclude_agent_tools:
+        all_tools = base_tools  # Sub-agents: no delegation capability
+    else:
+        all_tools = base_tools + agent_management_tools  # Main agent: full capabilities
 
     # ============= NODES =============
 

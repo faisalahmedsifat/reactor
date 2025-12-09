@@ -52,8 +52,8 @@ class AgentInstance:
         # Event callbacks for real-time streaming
         self._message_callbacks = []  # List of async callbacks: (agent_id, node_name, message)
         
-        # Graph internals
-        self.graph = create_simple_shell_agent()
+        # Graph internals - exclude agent tools for sub-agents to prevent recursive spawning
+        self.graph = create_simple_shell_agent(exclude_agent_tools=True)
         self.checkpointer = MemorySaver()
         self.config = {"configurable": {"thread_id": self.id}, "recursion_limit": 50}
         

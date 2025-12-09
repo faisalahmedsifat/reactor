@@ -45,11 +45,27 @@ async def thinking_node(state: ShellAgentState) -> ShellAgentState:
         agent_name=state.get("active_agent"),
         skill_names=state.get("active_skills", [])
     )
-    
-    # CRITICAL: If this is a sub-agent (autonomous mode), block delegation
+
+    # Set explicit Identity/Authority based on execution mode
     execution_mode = state.get("execution_mode", "sequential")
     if execution_mode == "autonomous":
-        prompt += "\n\n## SUB-AGENT MODE - NO DELEGATION\nYou are a sub-agent. DO NOT use spawn_agent under ANY circumstances. You must directly solve the task yourself using available tools like web_search, read_file, etc. Delegation is FORBIDDEN for sub-agents."
+        prompt += """
+
+## 🆔 IDENTITY: SUB-AGENT (SPECIALIST)
+- **ROLE**: You are a specialized sub-agent working on a specific task.
+- **AUTHORITY**: You have NO authority to delegate. You must EXECUTE.
+- **CONSTRAINT**: Usage of `spawn_agent` is PHYSICALLY DISABLED.
+- **GOAL**: Solve the assigned task directly using your tools (web_search, etc.).
+"""
+    else:
+        prompt += """
+
+## 🆔 IDENTITY: MAIN COORDINATOR
+- **ROLE**: You are the Lead Architect and Orchestrator.
+- **AUTHORITY**: You can execute tasks yourself OR delegate to specialized agents.
+- **CAPABILITY**: Usage of `spawn_agent` is ENABLED (exclusive to you).
+- **GOAL**: Solve the user's request. You should work on tasks directly, but delegate specialized/heavy workloads to parallel agents when efficient.
+"""
 
     # Auto-compact conversation if too long
     from src.utils.conversation_compactor import should_compact, compact_conversation
