@@ -560,6 +560,13 @@ class ShellAgentTUI(App):
                 tool_name = data["tool_name"]
                 result = data["result"]
                 
+                # Check for generic error in result (common pattern in tool implementations)
+                is_error = isinstance(result, dict) and ("error" in result)
+                if is_error:
+                     error_msg = result.get("error", "Unknown error")
+                     if tool_name != "execute_shell_command": # Shell command handles errors differently (stderr)
+                        log_viewer.add_log(f"❌ Tool '{tool_name}' failed: {error_msg}", "error")
+
                 if tool_name == "execute_shell_command" and isinstance(result, dict):
                     exec_result = ExecutionResult(
                         command=result.get("command", "[Unknown]"),
@@ -588,8 +595,62 @@ class ShellAgentTUI(App):
                         from src.tools.todo_tools import get_todos_for_ui
                         todos = get_todos_for_ui()
                         self.query_one(TODOPanel).update_todos(todos)
+                        if not is_error:
+                            log_viewer.add_log(f"✅ Todo updated: {tool_name}", "info")
                     except Exception as e:
                         self.logger.error(f"Failed to update TODOPanel: {e}")
+
+                # --- File Operations Feedback ---
+                elif tool_name == "write_file" and not is_error:
+                    path = result.get("file_path", "unknown")
+                    # Try to display basename for brevity
+                    basename = path.split("/")[-1] if path else "unknown"
+                    lines = result.get("lines_written", "?")
+                    op = result.get("operation", "wrote")
+                    log_viewer.add_log(f"📝 {op.capitalize()}: {basename} ({lines} lines)", "info")
+                
+                elif tool_name == "modify_file" and not is_error:
+                    path = result.get("file_path", "unknown")
+                    basename = path.split("/")[-1] if path else "unknown"
+                    replacements = result.get("replacements_made", 0)
+                    diff = result.get("diff", {})
+                    added = diff.get("added", 0)
+                    removed = diff.get("removed", 0)
+                    
+                    diff_str = ""
+                    if added > 0 or removed > 0:
+                        diff_str = f" (+{added} -{removed})"
+                        
+                    log_viewer.add_log(f"✏️ Modified: {basename} ({replacements} changes){diff_str}", "info")
+
+                elif tool_name == "apply_multiple_edits" and not is_error:
+                    path = result.get("file_path", "unknown")
+                    basename = path.split("/")[-1] if path else "unknown"
+                    successful = result.get("successful_edits", 0)
+                    total = result.get("total_edits", 0)
+                    diff = result.get("diff", {})
+                    added = diff.get("added", 0)
+                    removed = diff.get("removed", 0)
+                    
+                    diff_str = ""
+                    if added > 0 or removed > 0:
+                        diff_str = f" (+{added} -{removed})"
+                        
+                    log_viewer.add_log(f"🔨 Applied edits: {basename} ({successful}/{total} success){diff_str}", "info")
+
+                elif tool_name == "read_file_content" and not is_error:
+                    path = result.get("file_path", "unknown")
+                    basename = path.split("/")[-1] if path else "unknown"
+                    lines = result.get("lines_returned", 0)
+                    total = result.get("total_lines", 0)
+                    if lines < total:
+                         log_viewer.add_log(f"📄 Read {lines}/{total} lines from {basename}", "info")
+                    else:
+                         log_viewer.add_log(f"📄 Read {lines} lines from {basename}", "info")
+                
+                elif not is_error and tool_name not in ["execute_shell_command", "create_todo", "complete_todo", "update_todo", "list_todos", "write_file", "modify_file", "apply_multiple_edits", "read_file_content"]:
+                     # Generic success for other tools
+                     log_viewer.add_log(f"✅ Tool '{tool_name}' completed", "info")
         
         except Exception as e:
             self.logger.error(f"Error handling agent event: {e}")

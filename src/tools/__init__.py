@@ -10,7 +10,6 @@ from src.tools import (
     web_tools,
     todo_tools,
     grep_and_log_tools,
-    git_tools,
     agent_tools,  # New: agent management tools
 )
 
@@ -20,6 +19,5 @@ __all__ = [
     "web_tools",
     "todo_tools",
     "grep_and_log_tools",
-    "git_tools",
     "agent_tools",
 ]

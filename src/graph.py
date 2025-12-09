@@ -11,7 +11,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
 
 from src.state import ShellAgentState
-from src.tools import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools, git_tools, agent_tools
+from src.tools import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools, agent_tools
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 import os
 
@@ -54,13 +54,6 @@ def create_simple_shell_agent(exclude_agent_tools: bool = False):
         grep_and_log_tools.extract_json_fields,
         grep_and_log_tools.filter_command_output,
         grep_and_log_tools.analyze_error_logs,
-        git_tools.git_status,
-        git_tools.git_log,
-        git_tools.git_diff,
-        git_tools.git_branch_list,
-        git_tools.git_checkout,
-        git_tools.git_commit,
-        git_tools.git_show,
     ]
     
     # Agent management tools - only for main agent, not sub-agents

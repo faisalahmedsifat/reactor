@@ -400,6 +400,28 @@ async def write_file(file_path: str, content: str, mode: str = "create") -> Dict
         return {"error": f"Error writing file: {str(e)}", "file_path": file_path}
 
 
+import difflib
+
+def calculate_diff_stats(original_content: str, new_content: str) -> Dict[str, int]:
+    """Calculate lines added and removed between two strings."""
+    original_lines = original_content.splitlines()
+    new_lines = new_content.splitlines()
+    
+    matcher = difflib.SequenceMatcher(None, original_lines, new_lines)
+    added = 0
+    removed = 0
+    
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == 'replace':
+            removed += i2 - i1
+            added += j2 - j1
+        elif tag == 'delete':
+            removed += i2 - i1
+        elif tag == 'insert':
+            added += j2 - j1
+            
+    return {"added": added, "removed": removed}
+
 @tool
 async def modify_file(
     file_path: str, search_text: str, replace_text: str, occurrence: str = "all"
@@ -429,6 +451,8 @@ async def modify_file(
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
 
+        original_content = content # Keep for diffing
+
         # Count occurrences
         occurrences_found = content.count(search_text)
 
@@ -453,6 +477,9 @@ async def modify_file(
             new_content = content.replace(search_text, replace_text)
             replacements = occurrences_found
 
+        # Calculate diff stats
+        diff_stats = calculate_diff_stats(original_content, new_content)
+
         # Write back
         with open(path, "w", encoding="utf-8") as f:
             f.write(new_content)
@@ -463,6 +490,7 @@ async def modify_file(
             "occurrences_found": occurrences_found,
             "replacements_made": replacements,
             "operation": f"replaced {replacements} occurrence(s)",
+            "diff": diff_stats
         }
 
     except Exception as e:
@@ -558,6 +586,9 @@ async def apply_multiple_edits(file_path: str, edits: List[Dict[str, str]]) -> D
                 "changes": changes_log
             }
 
+        # Calculate diff stats
+        diff_stats = calculate_diff_stats(original_content, content)
+
         # atomic write
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
@@ -567,7 +598,8 @@ async def apply_multiple_edits(file_path: str, edits: List[Dict[str, str]]) -> D
             "file_path": str(path),
             "total_edits": len(edits),
             "successful_edits": successful_edits,
-            "changes": changes_log
+            "changes": changes_log,
+            "diff": diff_stats
         }
 
     except Exception as e:
