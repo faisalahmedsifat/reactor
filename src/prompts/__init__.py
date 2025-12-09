@@ -100,3 +100,77 @@ def reload_prompts():
     pm = get_prompt_manager()
     pm.reload()
     return f"Reloaded {len(pm.list_prompts())} prompts"
+
+
+def get_agent_prompt(agent_name: str) -> str:
+    """
+    Load agent system prompt from .reactor/agents/
+    
+    Args:
+        agent_name: Name of the agent to load
+        
+    Returns:
+        Agent's system prompt content
+    """
+    from src.agents.loader import AgentLoader
+    
+    agent_config = AgentLoader.load_agent(agent_name)
+    return agent_config.system_prompt
+
+
+def get_skill_instructions(skill_names: list[str]) -> str:
+    """
+    Load and merge skill instructions from .reactor/skills/
+    
+    Args:
+        skill_names: List of skill names to load
+        
+    Returns:
+        Combined skill instructions
+    """
+    from src.skills.loader import SkillLoader
+    
+    if not skill_names:
+        return ""
+    
+    skills = SkillLoader.load_multiple_skills(skill_names)
+    instructions = []
+    
+    for skill in skills:
+        instructions.append(f"## Skill: {skill.name}\n\n{skill.instructions}")
+    
+    return "\n\n".join(instructions)
+
+
+def compose_prompt(base_prompt: str, agent_name: Optional[str] = None, skill_names: Optional[list[str]] = None) -> str:
+    """
+    Compose final system prompt by merging base prompt with agent and skills.
+    
+    Args:
+        base_prompt: The base system prompt (thinking or agent)
+        agent_name: Optional agent name to load custom prompt
+        skill_names: Optional list of skill names for additional context
+        
+    Returns:
+        Composed system prompt
+    """
+    parts = [base_prompt]
+    
+    # Add agent-specific prompt
+    if agent_name:
+        try:
+            agent_prompt = get_agent_prompt(agent_name)
+            parts.append(f"\n\n# AGENT ROLE: {agent_name.upper()}\n\n{agent_prompt}")
+        except Exception as e:
+            print(f"Warning: Failed to load agent '{agent_name}': {e}")
+    
+    # Add skill instructions
+    if skill_names:
+        try:
+            skill_instructions = get_skill_instructions(skill_names)
+            if skill_instructions:
+                parts.append(f"\n\n# ACTIVE SKILLS\n\n{skill_instructions}")
+        except Exception as e:
+            print(f"Warning: Failed to load skills: {e}")
+    
+    return "\n".join(parts)

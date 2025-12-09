@@ -13,7 +13,7 @@ from langgraph.prebuilt import ToolNode
 from src.state import ShellAgentState
 from src.tools import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools
 from src.llm.client import get_llm_client
-from src.prompts import get_prompt
+from src.prompts import get_prompt, compose_prompt
 import os
 
 
@@ -67,11 +67,18 @@ async def agent_node(state: ShellAgentState) -> Dict:
         # Note: We'll return this update to state at the end
 
     # Retrieve specific system prompt for the Agent role
-    system_prompt_content = get_prompt(
+    base_system_prompt = get_prompt(
         "agent.system",
         os_type=system_info["os_type"],
         shell_type=system_info["shell_type"],
         working_directory=system_info["working_directory"],
+    )
+    
+    # Compose with agent and skills if specified
+    system_prompt_content = compose_prompt(
+        base_system_prompt,
+        agent_name=state.get("active_agent"),
+        skill_names=state.get("active_skills", [])
     )
 
     system_message = SystemMessage(content=system_prompt_content)

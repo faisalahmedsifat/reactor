@@ -439,3 +439,97 @@ TODOPanel {
     height: 40%; /* Reduced from 35% to give more space to Live Output */
     padding: 0;
 }
+/* Agent Editor Modal Styles */
+#agent-editor-dialog {
+    align: center middle;
+    width: 90;
+    height: 90%;
+    background: $surface;
+    border: thick $primary;
+    padding: 1 2;
+}
+
+#editor-title {
+    text-align: center;
+    text-style: bold;
+    color: $primary;
+    margin-bottom: 1;
+}
+
+#editor-form {
+    height: auto;
+    overflow-y: auto;
+}
+
+#editor-form Label {
+    margin-top: 1;
+    color: $text;
+}
+
+#editor-form Input {
+    margin-bottom: 1;
+}
+
+#agent-prompt {
+    height: 15;
+    min-height: 10;
+    border: solid $primary;
+}
+
+#editor-buttons {
+    margin-top: 1;
+    align: center middle;
+    height: auto;
+}
+
+#editor-buttons Button {
+    margin: 0 1;
+}
+
+/* Agent Detail Modal */
+#agent-detail-dialog {
+    align: center middle;
+    width: 80;
+    height: 80%;
+    background: $surface;
+    border: thick $accent;
+    padding: 1 2;
+}
+
+#detail-title {
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
+#detail-content {
+    height: auto;
+    overflow-y: auto;
+    margin-bottom: 1;
+}
+
+#prompt-view {
+    height: 20;
+    border: solid $accent;
+    margin-top: 1;
+}
+
+#detail-buttons {
+    align: center middle;
+    height: auto;
+}
+
+#detail-buttons Button {
+    margin: 0 1;
+}
+
+
+/* Autocomplete Hint Label */
+.hint-label {
+    height: 1;
+    color: $accent;
+    text-style: italic;
+    padding: 0 1;
+}
+

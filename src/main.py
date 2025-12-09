@@ -44,7 +44,23 @@ def parse_args():
         help="Override API key for the selected provider"
     )
     
-    # --save is now default behavior, flag removed
+    # Headless mode
+    parser.add_argument(
+        "-p", "--prompt",
+        help="Execute single prompt and exit (headless mode)"
+    )
+    
+    # Agent and skill selection
+    parser.add_argument(
+        "--agent",
+        help="Specify agent to use (e.g., web-researcher)"
+    )
+    
+    parser.add_argument(
+        "--skills",
+        nargs="+",
+        help="Specify skills to activate (e.g., frontend-dev backend-api)"
+    )
     
     return parser.parse_args()
 
@@ -209,8 +225,43 @@ def main():
     if not validate_config():
         return 1
 
-    # Check for CLI flag
-    if args.cli:
+    # HEADLESS MODE (-p flag)
+    if args.prompt:
+        from src.graph import run_simple_agent
+        
+        async def headless_execute():
+            """Execute single prompt and exit"""
+            print(f"🤖 ReACTOR (Headless Mode)")
+            print(f"   Provider: {os.getenv('LLM_PROVIDER', 'anthropic')}")
+            print(f"   Model: {os.getenv('LLM_MODEL', 'default')}")
+            
+            if args.agent:
+                print(f"   Agent: {args.agent}")
+            if args.skills:
+                print(f"   Skills: {', '.join(args.skills)}")
+            
+            print(f"\n{'='*60}")
+            print(f"Executing: {args.prompt}")
+            print(f"{'='*60}\n")
+            
+            try:
+                # Execute workflow with agent/skills
+                await run_simple_agent(
+                    args.prompt,
+                    agent_name=args.agent,
+                    skill_names=args.skills or []
+                )
+                return 0  # Success
+            except Exception as e:
+                print(f"\n❌ Error: {e}", file=sys.stderr)
+                import traceback
+                traceback.print_exc()
+                return 1  # Error
+        
+        return asyncio.run(headless_execute())
+    
+    # INTERACTIVE CLI MODE (--cli flag)
+    elif args.cli:
         # Run CLI version
         from src.graph import run_simple_agent
 
@@ -219,6 +270,11 @@ def main():
             print(f"   Provider: {os.getenv('LLM_PROVIDER', 'anthropic')}")
             print(f"   Model:    {os.getenv('LLM_MODEL', 'default')}")
             
+            if args.agent:
+                print(f"   Agent: {args.agent}")
+            if args.skills:
+                print(f"   Skills: {', '.join(args.skills)}")
+            
             while True:
                 try:
                     user_input = input("\n> ")
@@ -226,13 +282,20 @@ def main():
                         break
                     if not user_input.strip():
                         continue
-                    await run_simple_agent(user_input)
+                    await run_simple_agent(
+                        user_input,
+                        agent_name=args.agent,
+                        skill_names=args.skills or []
+                    )
                 except KeyboardInterrupt:
                     break
 
         return asyncio.run(cli_loop())
+    
+    # TUI MODE (default)
     else:
         # Run TUI version (default)
+        # Note: Agent and skill selection in TUI is done via slash commands
         from src.tui.app import run_tui
 
         run_tui(debug_mode=args.debug)

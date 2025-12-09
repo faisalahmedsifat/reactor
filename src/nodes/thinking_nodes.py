@@ -28,9 +28,9 @@ async def thinking_node(state: ShellAgentState) -> ShellAgentState:
     state["system_info"] = system_info
 
     # Load prompt from centralized system
-    from src.prompts import get_prompt
+    from src.prompts import get_prompt, compose_prompt
 
-    prompt = get_prompt(
+    base_prompt = get_prompt(
         "thinking.system",
         os_info=system_info["os_type"],
         shell_info=system_info["shell_type"],
@@ -38,6 +38,18 @@ async def thinking_node(state: ShellAgentState) -> ShellAgentState:
         git_info=system_info.get("git_info", "Unknown"),
         python_info=system_info.get("python_version", "Unknown"),
     )
+    
+    # Compose prompt with agent and skills if specified
+    prompt = compose_prompt(
+        base_prompt,
+        agent_name=state.get("active_agent"),
+        skill_names=state.get("active_skills", [])
+    )
+    
+    # CRITICAL: If this is a sub-agent (autonomous mode), block delegation
+    execution_mode = state.get("execution_mode", "sequential")
+    if execution_mode == "autonomous":
+        prompt += "\n\n## SUB-AGENT MODE - NO DELEGATION\nYou are a sub-agent. DO NOT use spawn_agent under ANY circumstances. You must directly solve the task yourself using available tools like web_search, read_file, etc. Delegation is FORBIDDEN for sub-agents."
 
     # Auto-compact conversation if too long
     from src.utils.conversation_compactor import should_compact, compact_conversation

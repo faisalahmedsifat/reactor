@@ -9,11 +9,12 @@ from rich.syntax import Syntax
 from rich.spinner import Spinner
 from rich.panel import Panel
 from rich.table import Table
-from typing import Optional, List
+from typing import Optional, List, Any
 from pathlib import Path
 import logging
 
 from src.models import ExecutionResult, ExecutionPlan, RiskLevel, Command
+from src.tui.widgets.suggestions_list import SuggestionsList
 
 
 class LogViewer(VerticalScroll):
@@ -418,7 +419,7 @@ class ResultsPanel(Static):
 
 
 class ChatInput(TextArea):
-    """Custom TextArea for chat input with Enter-to-submit"""
+    """Custom TextArea for chat input with inline autocomplete"""
 
     class Submitted(Message):
         """Posted when user presses Enter without Shift"""
@@ -429,23 +430,152 @@ class ChatInput(TextArea):
     BINDINGS = [
         Binding("enter", "submit", "Submit", priority=True),
         Binding("shift+enter", "newline", "Newline", priority=True),
+        Binding("down", "suggestion_down", "Next", priority=True),
+        Binding("up", "suggestion_up", "Prev", priority=True),
     ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.autocomplete_active = False
+        self.autocomplete_type = ""  # 'command' or 'file'
+        self.autocomplete_start_pos = 0
+
+    def on_text_area_changed(self, event) -> None:
+        """Handle text changes to show inline suggestions"""
+        from src.tui.helpers.fuzzy_search import get_command_suggestions, get_file_suggestions
+        
+        text = self.text
+        if not text:
+            self._hide_suggestions()
+            return
+        
+        # Get current cursor position
+        cursor_row, cursor_col = self.cursor_location
+        lines = text.split("\n")
+        if cursor_row >= len(lines):
+            return
+        
+        current_line = lines[cursor_row]
+        text_before_cursor = current_line[:cursor_col]
+        
+        # Check if we should show autocomplete
+        if text_before_cursor.startswith("/"):
+            # Command autocomplete
+            query = text_before_cursor[1:]
+            suggestions = get_command_suggestions(query)
+            if suggestions:
+                self._show_suggestions(suggestions, "command", 0)
+            else:
+                self._hide_suggestions()
+        elif "@" in text_before_cursor:
+            # File autocomplete
+            last_at = text_before_cursor.rfind("@")
+            query = text_before_cursor[last_at+1:]
+            suggestions = get_file_suggestions(query)
+            if suggestions:
+                self._show_suggestions(suggestions, "file", last_at + 1)
+            else:
+                self._hide_suggestions()
+        else:
+            self._hide_suggestions()
+    
+    def _show_suggestions(self, suggestions: List[str], type: str, start_pos: int) -> None:
+        """Show suggestions in the suggestions list"""
+        self.autocomplete_active = True
+        self.autocomplete_type = type
+        self.autocomplete_start_pos = start_pos
+        
+        # Get parent container and update suggestions list
+        try:
+            dashboard = self.ancestors[0]  # AgentDashboard
+            suggestions_list = dashboard.query_one(SuggestionsList)
+            suggestions_list.show_suggestions(suggestions)
+        except Exception:
+            pass
+    
+    def _hide_suggestions(self) -> None:
+        """Hide suggestions"""
+        self.autocomplete_active = False
+        try:
+            dashboard = self.ancestors[0]
+            suggestions_list = dashboard.query_one(SuggestionsList)
+            suggestions_list.hide()
+        except Exception:
+            pass
+    
+    def action_suggestion_down(self) -> None:
+        """Select next suggestion"""
+        if not self.autocomplete_active:
+            return
+        try:
+            dashboard = self.ancestors[0]
+            suggestions_list = dashboard.query_one(SuggestionsList)
+            suggestions_list.select_next()
+        except Exception:
+            pass
+    
+    def action_suggestion_up(self) -> None:
+        """Select previous suggestion"""
+        if not self.autocomplete_active:
+            return
+        try:
+            dashboard = self.ancestors[0]
+            suggestions_list = dashboard.query_one(SuggestionsList)
+            suggestions_list.select_prev()
+        except Exception:
+            pass
+
     def action_submit(self) -> None:
-        """Submit the current text"""
+        """Submit the current text or accept autocomplete"""
+        # If autocomplete is active, accept the selected suggestion
+        if self.autocomplete_active:
+            try:
+                dashboard = self.ancestors[0]
+                suggestions_list = dashboard.query_one(SuggestionsList)
+                selected = suggestions_list.get_selected()
+                
+                if selected:
+                    # Auto-complete if only one suggestion OR user has selected one
+                    if len(suggestions_list.suggestions) == 1 or suggestions_list.selected_index >= 0:
+                        self._accept_suggestion(selected)
+                        return
+            except Exception:
+                pass
+        
+        # Otherwise submit normally
         value = self.text.strip()
         if value:
             self.post_message(self.Submitted(value))
-            # Input is cleared by the app handler usually, but we can clear here too to look responsive
-            # Let's let the app handler clear it or we clear it here.
-            # Ideally app handles it.
-            # But simpler: clear here.
             self.text = ""
             self.cursor_location = (0, 0)
+            self._hide_suggestions()
+    
+    def _accept_suggestion(self, suggestion: str) -> None:
+        """Accept and insert the selected suggestion"""
+        text = self.text
+        cursor_row, cursor_col = self.cursor_location
+        lines = text.split("\n")
+        
+        if cursor_row >= len(lines):
+            return
+        
+        current_line = lines[cursor_row]
+        
+        # Replace from autocomplete_start_pos to cursor with suggestion
+        new_line = current_line[:self.autocomplete_start_pos] + suggestion + " " + current_line[cursor_col:]
+        lines[cursor_row] = new_line
+        
+        self.text = "\n".join(lines)
+        new_cursor_pos = self.autocomplete_start_pos + len(suggestion) + 1
+        self.cursor_location = (cursor_row, new_cursor_pos)
+        
+        # Hide suggestions after accepting
+        self._hide_suggestions()
     
     def action_newline(self) -> None:
         """Insert newline"""
         self.insert("\n")
+
 
 
 class AgentDashboard(Container):
@@ -459,6 +589,8 @@ class AgentDashboard(Container):
             super().__init__()
 
     execution_mode: reactive[str] = reactive("sequential")
+    _autocomplete_modal: Optional[object] = None  # Track current autocomplete modal
+    _autocomplete_type: str = ""
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dashboard-container"):
@@ -469,6 +601,7 @@ class AgentDashboard(Container):
             yield LogViewer(id="log-viewer")
             with Container(id="input-container"):
                 yield ChatInput(id="agent-input")
+                yield SuggestionsList()  # Inline suggestions
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle execution mode toggle"""
@@ -483,5 +616,43 @@ class AgentDashboard(Container):
                 event.button.label = "Sequential"
                 event.button.variant = "primary"
 
-            # Post message to app
-            self.post_message(self.ExecutionModeToggled(self.execution_mode))
+    async def load_history(self, messages: List[Any]) -> None:
+        """Clear and load history from message objects"""
+        log_viewer = self.query_one("#log-viewer")
+        
+        # Clear existing
+        for child in log_viewer.query("*"):
+            child.remove()
+        
+        # Re-render messages
+        for msg in messages:
+            content = msg.content
+            if not content:
+                continue
+                
+            # Determine type/style
+            msg_type = msg.type
+            level = "info"
+            is_thought = False
+            
+            if msg_type == "human":
+                content = f"💬 You: {content}"
+                level = "info"
+            elif msg_type == "ai":
+                # Check if it has tool calls (which we might skip or show as activity)
+                if hasattr(msg, "tool_calls") and msg.tool_calls:
+                    # In this simplified view, maybe just show the thought?
+                    pass
+                level = "agent"
+            elif msg_type == "tool":
+                # Tool outputs often long, maybe show as thought/activity
+                level = "info"
+                is_thought = True
+            
+            # Rough heuristic for "thoughts" vs "responses"
+            # If AI message starts with special tokens (formatting), handle in add_log
+            
+            log_viewer.add_log(str(content), level, is_thought=is_thought)
+            
+        log_viewer.add_log("🔄 Thread loaded", "info")
+

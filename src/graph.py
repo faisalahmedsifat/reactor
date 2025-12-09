@@ -11,7 +11,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
 
 from src.state import ShellAgentState
-from src.tools import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools, git_tools
+from src.tools import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools, git_tools, agent_tools
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 import os
 
@@ -56,6 +56,12 @@ def create_simple_shell_agent():
         git_tools.git_checkout,
         git_tools.git_commit,
         git_tools.git_show,
+        # Agent Tools - Parallel agent execution
+        agent_tools.spawn_agent,
+        agent_tools.get_agent_result,
+        agent_tools.list_available_agents,
+        agent_tools.list_running_agents,
+        agent_tools.stop_agent,
     ]
 
     # ============= NODES =============
@@ -77,8 +83,10 @@ def create_simple_shell_agent():
         "agent", should_continue, {"tools": "tools", "thinking": "thinking", "end": END}
     )
 
-    # After using tools, go back to thinking to analyze results
-    workflow.add_edge("tools", "thinking")
+    # After using tools, check if we should end immediately (e.g., spawn_agent) or continue thinking
+    workflow.add_conditional_edges(
+        "tools", should_continue_after_tools, {"thinking": "thinking", "end": END}
+    )
 
     # ============= COMPILATION =============
 
@@ -93,6 +101,30 @@ def create_simple_shell_agent():
 
 
 
+
+
+def should_continue_after_tools(state: ShellAgentState) -> Literal["thinking", "end"]:
+    """
+    Determine routing after tools execute.
+    
+    CRITICAL: If spawn_agent was just called, END immediately without thinking.
+    This prevents the infinite analysis loop.
+    """
+    messages = state["messages"]
+    
+    # Check the last few messages for spawn_agent tool calls
+    for msg in reversed(messages[-5:]):  # Check last 5 messages
+        if hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tool_call in msg.tool_calls:
+                # Tool calls can be dicts or objects
+                tool_name = tool_call.get("name") if isinstance(tool_call, dict) else getattr(tool_call, "name", None)
+                if tool_name == "spawn_agent":
+                    # spawn_agent was just called - terminate immediately
+                    print("[DEBUG] Detected spawn_agent in history, ending immediately")
+                    return "end"
+    
+    # Default: continue to thinking for analysis
+    return "thinking"
 
 
 def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
@@ -131,8 +163,21 @@ def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
 # ============= EXECUTION HELPER =============
 
 
-async def run_simple_agent(user_request: str, thread_id: str = "default"):
-    """Run simplified agent"""
+async def run_simple_agent(
+    user_request: str, 
+    thread_id: str = "default",
+    agent_name: str = None,
+    skill_names: list = None
+):
+    """
+    Run simplified agent with optional agent and skills.
+    
+    Args:
+        user_request: User's request
+        thread_id: Thread ID for conversation tracking
+        agent_name: Optional agent name to use
+        skill_names: Optional list of skill names
+    """
 
     graph = create_simple_shell_agent()
 
@@ -151,6 +196,8 @@ async def run_simple_agent(user_request: str, thread_id: str = "default"):
         "execution_mode": "sequential",
         "max_retries": 3,
         "analysis_data": None,
+        "active_agent": agent_name,  # New: agent name
+        "active_skills": skill_names or [],  # New: skill names
     }
 
     config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 50}

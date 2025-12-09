@@ -40,6 +40,11 @@ The agent features a **conversational interface** that communicates its understa
 
 ## 🚀 Getting Started
 
+### Prerequisites
+
+- Python 3.10+
+- pip
+
 ### Installation
 
 You can install ReACTOR directly using pip:

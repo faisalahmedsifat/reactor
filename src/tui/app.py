@@ -42,6 +42,7 @@ from src.tui.widgets.agent_ui import (
     LiveExecutionPanel,
     ChatInput,
 )
+from src.tui.widgets.active_agents import ActiveAgents
 from src.tui.bridge import AgentBridge
 from src.models import ExecutionResult, ExecutionPlan
 
@@ -93,6 +94,7 @@ class ShellAgentTUI(App):
         self.execution_results: List[ExecutionResult] = []
         self.agent_worker = None  # Track running agent worker
         self.last_quit_time = 0.0
+        self.current_agent_id = "main"  # Track which agent thread is being viewed
 
         # Conditional logging setup
         if self.debug_mode:
@@ -132,6 +134,7 @@ class ShellAgentTUI(App):
             with Vertical(id="col-files"):
                 yield Static("Project Structure", classes="panel-header")
                 yield FileExplorer("./", id="file-explorer")
+                yield ActiveAgents(id="active-agents")
 
             # Col 2: Agent
             with Vertical(id="col-agent"):
@@ -153,6 +156,11 @@ class ShellAgentTUI(App):
     def on_mount(self) -> None:
         """Initialize"""
         self.logger.info("TUI Mounted")
+        
+        # Register callback for real-time agent streaming
+        from src.agents.manager import AgentManager
+        manager = AgentManager()
+        manager.set_tui_callback(self.on_agent_message)
         
         # Fresh Session: Clear Todo State
         try:
@@ -261,11 +269,13 @@ class ShellAgentTUI(App):
             self.logger.warning(f"Unknown command palette action: {event.action}")
 
     # --- File Reference Modal Handlers ---
+    # NOTE: Disabled in favor of Tab-based autocomplete
+    # The ChatInput widget now handles @ file autocomplete via Tab key
 
-    def on_input_changed(self, event: Input.Changed) -> None:
-        """Detect @ and open file reference modal"""
-        if event.input.id == "agent-input" and event.value.endswith("@"):
-            self.push_screen(FileReferenceModal())
+    # def on_input_changed(self, event: Input.Changed) -> None:
+    #     """Detect @ and open file reference modal"""
+    #     if event.input.id == "agent-input" and event.value.endswith("@"):
+    #         self.push_screen(FileReferenceModal())
 
     def on_file_reference_modal_file_selected(
         self, message: FileReferenceModal.FileSelected
@@ -279,11 +289,24 @@ class ShellAgentTUI(App):
 
     # --- Agent Bridge Handlers ---
 
-    def _handle_slash_command(self, command: str) -> None:
-        """Handle slash commands like /clear, /help, /compact"""
+    async def _handle_slash_command(self, command: str) -> None:
+        """Handle slash commands like /clear, /help, /compact, /agents, /skills, /running"""
         dashboard = self.query_one(AgentDashboard)
         log_viewer = dashboard.query_one("#log-viewer")
 
+        # Try agent-related commands first (delegated to bridge)
+        agent_response = await self.bridge.handle_slash_command(command)
+        if agent_response:
+            # Check for modal triggers
+            if agent_response.startswith("MODAL:"):
+                await self._handle_modal_command(agent_response, log_viewer)
+                return
+            
+            # Bridge handled it - display the response
+            log_viewer.add_log(agent_response, "info")
+            return
+
+        # Handle TUI-specific commands
         if command == "/clear":
             # Clear the log viewer by removing all children
             for child in log_viewer.query("*"):
@@ -309,16 +332,74 @@ class ShellAgentTUI(App):
 
         elif command == "/help":
             help_text = """**Available Commands:**
+
+**General:**
 - `/clear` - Clear conversation history
 - `/compact` - Summarize and compact conversation
 - `/help` - Show this help message
-- `@filename` - Reference a file in your message"""
+- `@filename` - Reference a file in your message
+
+**Agents & Skills:**
+- `/agents` or `/agent` - List available agents
+- `/skills` or `/skill` - List available skills
+- `/running` - Show running agent instances
+- `/result <agent-id>` - Get specific agent output
+
+**Agent Management:**
+- `/new-agent` - Create a new agent
+- `/edit-agent <name>` - Edit an agent
+- `/view-agent <name>` - View agent details
+- `/delete-agent <name>` - Delete an agent
+
+**Tips:**
+- Press **Tab** to autocomplete `/commands` and `@file` paths
+- Press Tab multiple times to cycle through matches
+- Type `/` and press Tab to see all commands
+- Type `@` and press Tab to see available files"""
             log_viewer.add_log(help_text, "info")
         else:
             log_viewer.add_log(
                 f"⚠️ Unknown command: {command}. Type /help for available commands.",
                 "warning",
             )
+    
+    async def _handle_modal_command(self, modal_command: str, log_viewer) -> None:
+        """Handle modal-triggering commands"""
+        from src.tui.widgets.agent_editor_modal import AgentEditorModal, AgentDetailModal
+        
+        if modal_command == "MODAL:new-agent":
+            # Open agent creation modal
+            result = await self.push_screen_wait(AgentEditorModal())
+            if result:
+                log_viewer.add_log(
+                    f"✅ Agent '{result['name']}' {result['action']} successfully\nFile: `{result['file']}`",
+                    "info"
+                )
+        
+        elif modal_command.startswith("MODAL:edit-agent:"):
+            agent_name = modal_command.split(":", 2)[2]
+            # Open agent editor in edit mode
+            result = await self.push_screen_wait(AgentEditorModal(agent_name=agent_name, edit_mode=True))
+            if result:
+                log_viewer.add_log(
+                    f"✅ Agent '{result['name']}' {result['action']} successfully",
+                    "info"
+                )
+        
+        elif modal_command.startswith("MODAL:view-agent:"):
+            agent_name = modal_command.split(":", 2)[2]
+            # Open agent detail modal
+            result = await self.push_screen_wait(AgentDetailModal(agent_name=agent_name))
+            if result and result.get("action") == "edit":
+                # User clicked Edit button - open editor
+                edit_result = await self.push_screen_wait(
+                    AgentEditorModal(agent_name=result["agent_name"], edit_mode=True)
+                )
+                if edit_result:
+                    log_viewer.add_log(
+                        f"✅ Agent '{edit_result['name']}' {edit_result['action']} successfully",
+                        "info"
+                    )
 
     @on(DirectoryTree.FileSelected)
     async def on_directory_tree_file_selected(
@@ -386,9 +467,9 @@ class ShellAgentTUI(App):
         if not command:
             return
 
-        # Handle slash commands
+        # Handle slash commands (now async)
         if command.startswith("/"):
-            self._handle_slash_command(command)
+            await self._handle_slash_command(command)
             return
 
         # Extract @ file references
@@ -424,6 +505,55 @@ class ShellAgentTUI(App):
         self.agent_worker = self.run_worker(
             self.bridge.process_request(command, execution_mode), exclusive=True
         )
+
+    async def on_agent_message(self, agent_id: str, node_name: str, message) -> None:
+        """Handle real-time messages from spawned agents"""
+        # Only update if we're currently viewing this agent
+        if agent_id != self.current_agent_id:
+            return
+        
+        try:
+            dashboard = self.query_one(AgentDashboard)
+            log_viewer = dashboard.query_one("#log-viewer")
+            
+            # Extract content
+            content = message.content if hasattr(message, "content") else str(message)
+            
+            # Map node name to log type
+            log_type = "thought" if node_name == "thinking" else "agent"
+            
+            if content and content.strip():
+                log_viewer.add_log(content, log_type)
+        except Exception as e:
+            self.logger.error(f"Error handling agent message: {e}")
+    
+    async def on_active_agents_agent_selected(
+        self, event: ActiveAgents.AgentSelected
+    ) -> None:
+        """Handle agent selection from sidebar"""
+        agent_id = event.agent_id
+        self.current_agent_id = agent_id  # Track which agent we're viewing
+        dashboard = self.query_one(AgentDashboard)
+        
+        self.logger.info(f"Switching view to agent thread: {agent_id}")
+        
+        if agent_id == "main":
+            # Load main thread
+            if hasattr(self.bridge, "state") and "messages" in self.bridge.state:
+                await dashboard.load_history(self.bridge.state["messages"])
+                dashboard.query_one(StateIndicator).title = "Main Thread"
+        else:
+            # Load parallel agent thread
+            from src.agents.manager import AgentManager
+            manager = AgentManager()
+            history = await manager.get_agent_history(agent_id)
+            if history:
+                await dashboard.load_history(history)
+                # Update header to show we are viewing an agent
+                agent = manager.get_agent(agent_id)
+                dashboard.query_one(StateIndicator).title = f"Agent: {agent.agent_name}"
+            else:
+                 dashboard.query_one("#log-viewer").add_log("⚠️ Unable to load agent history", "warning")
 
     def on_directory_tree_file_selected(self, event: FileExplorer.FileSelected) -> None:
         """Handle file selection from sidebar"""

@@ -1,9 +1,25 @@
 """
 src/tools/__init__.py
 
-Export all tools from the tools module.
+Tool exports.
 """
 
-from . import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools, git_tools
+from src.tools import (
+    shell_tools,
+    file_tools,
+    web_tools,
+    todo_tools,
+    grep_and_log_tools,
+    git_tools,
+    agent_tools,  # New: agent management tools
+)
 
-__all__ = ["shell_tools", "file_tools", "web_tools", "todo_tools", "grep_and_log_tools", "git_tools"]
+__all__ = [
+    "shell_tools",
+    "file_tools",
+    "web_tools",
+    "todo_tools",
+    "grep_and_log_tools",
+    "git_tools",
+    "agent_tools",
+]

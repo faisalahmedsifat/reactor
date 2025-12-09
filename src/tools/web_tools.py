@@ -60,6 +60,7 @@ def _duckduckgo_search(query: str) -> List[Dict[str, str]]:
     return results
 
 
+@tool
 def web_search(query: str) -> str:
     """
     Searches the web for the given query using DuckDuckGo and returns a summary of results.

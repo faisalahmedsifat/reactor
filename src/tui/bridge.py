@@ -26,7 +26,6 @@ class AgentBridge:
         self.thread_id = "tui-session"
         self.running = False
 
-        # Conditional chat logger setup
         if self.debug_mode:
             from src.logger import ConversationLogger
             self.chat_logger = ConversationLogger(log_file="conversation_history.md")
@@ -34,7 +33,199 @@ class AgentBridge:
             from src.logger import ConversationLogger
             self.chat_logger = ConversationLogger(log_file=None)
 
+        self.state = {} # Initialize empty state for history tracking
         self.logger.info("AgentBridge initialized")
+
+    async def handle_slash_command(self, command: str) -> Optional[str]:
+        """
+        Handle TUI slash commands for agents and skills.
+        
+        Returns:
+            Formatted message to display in TUI, or None if not a slash command
+        """
+        command = command.strip()
+        
+        if not command.startswith("/"):
+            return None
+        
+        # /agents or /agent - List available agents
+        if command in ["/agents", "/agent"]:
+            from src.agents.loader import AgentLoader
+            
+            try:
+                agents = AgentLoader.list_agents()
+                
+                if not agents:
+                    return "## 📋 Available Agents\n\nNo agents found in `.reactor/agents/`"
+                
+                message = "## 📋 Available Agents\n\n"
+                for agent in agents:
+                    message += f"**{agent['name']}** (v{agent['version']})\n"
+                    message += f"  {agent['description']}\n"
+                    if agent.get('author'):
+                        message += f"  *by {agent['author']}*\n"
+                    message += "\n"
+                
+                message += "\n*Use `spawn_agent` tool to activate an agent*"
+                return message
+            except Exception as e:
+                return f"❌ Error listing agents: {str(e)}"
+        
+        # /skills or /skill - List available skills
+        elif command in ["/skills", "/skill"]:
+            from src.skills.loader import SkillLoader
+            
+            try:
+                skills = SkillLoader.list_skills()
+                
+                if not skills:
+                    return "## 🎯 Available Skills\n\nNo skills found in `.reactor/skills/`"
+                
+                message = "## 🎯 Available Skills\n\n"
+                for skill in skills:
+                    message += f"**{skill['name']}** (v{skill['version']})\n"
+                    message += f"  {skill['description']}\n"
+                    if skill.get('author'):
+                        message += f"  *by {skill['author']}*\n"
+                    message += "\n"
+                
+                message += "\n*Skills are loaded automatically by agents*"
+                return message
+            except Exception as e:
+                return f"❌ Error listing skills: {str(e)}"
+        
+        # /running - List running agents
+        elif command == "/running":
+            from src.tools.agent_tools import get_agent_manager
+            
+            try:
+                manager = get_agent_manager()
+                running = manager.list_agents()
+                
+                if not running:
+                    return "## 🤖 Running Agents\n\nNo agents currently running"
+                
+                message = "## 🤖 Running Agents\n\n"
+                for agent in running:
+                    status_emoji = {
+                        "running": "🏃",
+                        "completed": "✅",
+                        "error": "❌",
+                        "initializing": "🔄",
+                        "stopped": "🛑"
+                    }.get(agent["state"], "❓")
+                    
+                    message += f"{status_emoji} **{agent['name']}** (`{agent['id']}`)\n"
+                    message += f"  Status: {agent['state']}\n"
+                    message += f"  Task: {agent['task'][:60]}...\n"
+                    if agent.get('skills'):
+                        message += f"  Skills: {', '.join(agent['skills'])}\n"
+                    if agent.get('duration'):
+                        message += f"  Duration: {agent['duration']:.1f}s\n"
+                    message += "\n"
+                
+                stats = manager.get_stats()
+                message += f"\n**Total:** {stats['total_active']} agents\n"
+                message += f"**By State:** {stats['by_state']}\n\n"
+                message += "*Use `/result <agent-id>` to get specific agent output*"
+                
+                return message
+            except Exception as e:
+                return f"❌ Error listing running agents: {str(e)}"
+        
+        # /result <agent-id> - Get specific agent result
+        elif command.startswith("/result"):
+            parts = command.split(maxsplit=1)
+            if len(parts) < 2:
+                return "**Usage:** `/result <agent-id>`\n\nExample: `/result web-researcher-a1b2c3d4`"
+            
+            instance_id = parts[1].strip()
+            
+            from src.tools.agent_tools import get_agent_manager
+            
+            try:
+                manager = get_agent_manager()
+                agent = manager.get_agent(instance_id)
+                
+                message = f"## 🤖 Agent Result: {agent.agent_name}\n\n"
+                message += f"**ID:** `{agent.instance_id}`\n"
+                message += f"**Status:** {agent.state}\n"
+                message += f"**Task:** {agent.task}\n\n"
+                
+                if agent.state == "completed":
+                    duration = (agent.completed_at - agent.created_at).total_seconds()
+                    message += f"**Duration:** {duration:.1f}s\n\n"
+                    message += "**Output:**\n\n"
+                    message += agent.get_final_output()
+                elif agent.state == "running":
+                    message += "**Progress:**\n\n"
+                    message += agent.get_latest_progress()
+                    message += f"\n\n*Check again later for final result*"
+                elif agent.state == "error":
+                    message += f"**Error:**\n\n{agent.error}"
+                else:
+                    message += "*Agent is initializing...*"
+                
+                return message
+            except Exception as e:
+                return f"❌ Error getting agent result: {str(e)}"
+        
+        # /new-agent - Create new agent (triggers modal)
+        elif command == "/new-agent":
+            return "MODAL:new-agent"  # Special marker for TUI to open modal
+        
+        # /edit-agent <name> - Edit existing agent
+        elif command.startswith("/edit-agent"):
+            parts = command.split(maxsplit=1)
+            if len(parts) < 2:
+                return "**Usage:** `/edit-agent <agent-name>`\n\nExample: `/edit-agent web-researcher`"
+            
+            agent_name = parts[1].strip()
+            return f"MODAL:edit-agent:{agent_name}"
+        
+        # /view-agent <name> - View agent details
+        elif command.startswith("/view-agent"):
+            parts = command.split(maxsplit=1)
+            if len(parts) < 2:
+                return "**Usage:** `/view-agent <agent-name>`\n\nExample: `/view-agent web-researcher`"
+            
+            agent_name = parts[1].strip()
+            return f"MODAL:view-agent:{agent_name}"
+        
+        # /delete-agent <name> - Delete agent
+        elif command.startswith("/delete-agent"):
+            parts = command.split(maxsplit=1)
+            if len(parts) < 2:
+                return "**Usage:** `/delete-agent <agent-name>`\n\nExample: `/delete-agent my-agent`"
+            
+            agent_name = parts[1].strip()
+            
+            try:
+                # Find agent file
+                from pathlib import Path
+                project_agent = Path.cwd() / ".reactor" / "agents" / f"{agent_name}.md"
+                user_agent = Path.home() / ".reactor" / "agents" / f"{agent_name}.md"
+                
+                if project_agent.exists():
+                    project_agent.unlink()
+                    location = "project"
+                elif user_agent.exists():
+                    user_agent.unlink()
+                    location = "user"
+                else:
+                    return f"❌ Agent '{agent_name}' not found"
+                
+                # Reload agents
+                from src.agents.loader import AgentLoader
+                AgentLoader.discover_agents(force_refresh=True)
+                
+                return f"✅ Agent '{agent_name}' deleted from {location} directory"
+            except Exception as e:
+                return f"❌ Error deleting agent: {str(e)}"
+        
+        # Unknown command
+        else:
+            return None
 
     async def process_request(
         self, user_request: str, execution_mode: str = "sequential"
@@ -91,8 +282,9 @@ class AgentBridge:
             self.logger.info("Agent execution completed")
 
             # Fetch final state to pass to on_agent_complete
-            state = await self.graph.aget_state(config)
-            await self.tui_app.on_agent_complete(state.values)
+            final_snapshot = await self.graph.aget_state(config)
+            self.state = final_snapshot.values
+            await self.tui_app.on_agent_complete(self.state)
 
         except Exception as e:
             import traceback
