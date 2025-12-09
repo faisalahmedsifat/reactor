@@ -149,6 +149,13 @@ The agent uses a reliable **Thinking-Agent Loop** implemented in LangGraph:
 - *Input*: Tool calls
 - *Output*: Tool artifacts (stdout, file content, search results)
 
+- *Output*: Tool artifacts (stdout, file content, search results)
+
+### Custom Agents & Skills
+
+For a comprehensive guide on creating custom agents (like specialized researchers, coders) and skills (reusable knowledge modules), see:
+[**Creating Agents and Skills**](docs/CREATING_AGENTS_AND_SKILLS.md)
+
 ---
 
 ## Tool System

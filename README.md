@@ -74,6 +74,17 @@ Start the agent:
 reactor
 ```
 
+```
+
+## 🧩 Customization
+
+Extend ReACTOR with custom agents and skills:
+
+- **Agents**: Specialized personas (e.g., SEO Expert, Data Analyst)
+- **Skills**: Reusable knowledge modules (e.g., React Best Practices, API Design)
+
+[**📚 Guide: Creating Agents and Skills**](docs/CREATING_AGENTS_AND_SKILLS.md)
+
 ## 📖 Usage
 
 ### Analytical Tasks
