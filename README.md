@@ -213,7 +213,7 @@ Message types:
 
 ## 🚧 Current Status
 
-**Version**: 0.2.0 (Active Development)
+**Version**: 0.3.0 (Active Development)
 
 ### ✅ Completed Features
 - [x] LangGraph workflow with multiple node types

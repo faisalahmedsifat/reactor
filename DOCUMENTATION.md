@@ -14,7 +14,7 @@ Enable developers to interact with their codebase and system using natural langu
 
 ---
 
-## Current Status (v0.2.0)
+## Current Status (v0.3.0)
 
 ### Development Timeline
 
@@ -435,6 +435,6 @@ DANGEROUS_PATTERNS = [
 
 ---
 
-**Last Updated**: December 6, 2024  
-**Version**: 0.2.0  
+**Last Updated**: December 9, 2024  
+**Version**: 0.3.0  
 **Maintainer**: Your Name

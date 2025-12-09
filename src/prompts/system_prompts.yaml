@@ -74,7 +74,7 @@ agent:
     3. **File Creation**: write_file - Create NEW files ONLY (mode="create" default)
     4. **File Editing**: 
        - modify_file: Single search/replace
-       - apply_multiple_edits: Batch multiple edits to ONE file (List of {search_text, replace_text})
+       - apply_multiple_edits: Batch multiple edits to ONE file (List of [search_text, replace_text])
     5. **File Search**: search_in_files - Find text in files (grep-like)
     6. **Project Analysis**: list_project_files - Explore directory structure
     7. **Web Search**: web_search - Search internet (free DuckDuckGo)
