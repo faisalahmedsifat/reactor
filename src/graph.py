@@ -39,6 +39,7 @@ def create_simple_shell_agent(exclude_agent_tools: bool = False):
         file_tools.read_file_content,
         file_tools.write_file,
         file_tools.modify_file,
+        file_tools.apply_multiple_edits,
         file_tools.list_project_files,
         file_tools.search_in_files,
         web_tools.web_search,
@@ -169,8 +170,9 @@ def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
     if content and str(content).strip():
         return "end"
 
-    # Fallback: If no tools and no content, maybe force thinking?
-    return "thinking"
+    # Fallback: If no tools and no content (or just whitespace), END to prevent infinite loop
+    # The agent might have nothing to say or is confused. Better to stop than loop.
+    return "end"
 
 
 # ============= EXECUTION HELPER =============

@@ -8,70 +8,7 @@ from pathlib import Path
 import time
 
 
-# Tool 1: Parse Intent
-class ParseIntentInput(BaseModel):
-    user_request: str = Field(description="User's natural language request")
-    working_directory: str = Field(default="~")
-    shell_type: str = Field(default="bash")
 
-
-@tool(args_schema=ParseIntentInput)
-def parse_user_intent(
-    user_request: str, working_directory: str = "~", shell_type: str = "bash"
-) -> Dict[str, Any]:
-    """
-    Parse natural language request into structured intent.
-
-    Analyzes what the user wants to accomplish and extracts:
-    - Task description
-    - Operation category
-    - Key entities (files, packages, etc)
-    - Constraints
-
-    Use this as the FIRST tool when user makes a request.
-    """
-    return {
-        "task_description": user_request,
-        "category": "to_be_determined",
-        "key_entities": [],
-        "constraints": [],
-        "user_intent_confidence": 0.9,
-        "context": {"working_directory": working_directory, "shell_type": shell_type},
-    }
-
-
-# Tool 2: Generate Command Plan
-class GeneratePlanInput(BaseModel):
-    task_description: str
-    category: str = Field(default="other")
-    key_entities: List[str] = Field(default_factory=list)
-    working_directory: str = Field(default="~")
-
-
-@tool(args_schema=GeneratePlanInput)
-def generate_command_plan(
-    task_description: str,
-    category: str = "other",
-    key_entities: List[str] = [],
-    working_directory: str = "~",
-) -> Dict[str, Any]:
-    """
-    Generate execution plan with shell commands.
-
-    Creates a safe, step-by-step plan including:
-    - Ordered shell commands
-    - Safety risk assessment
-    - Reversibility info
-    - Dependencies
-
-    Use after parsing intent to create the execution strategy.
-    """
-    return {
-        "commands": [],
-        "overall_strategy": f"Execute: {task_description}",
-        "potential_issues": [],
-        "estimated_duration_seconds": 5,
-    }
 
 
 # Tool 3: Validate Safety

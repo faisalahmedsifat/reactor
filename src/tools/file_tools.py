@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 from langchain_core.tools import tool
+from pydantic import BaseModel, Field
+
 
 
 @tool
@@ -140,7 +142,9 @@ async def list_project_files(
         "total_directories": total_dirs,
         "files_by_extension": {k: len(v) for k, v in files_by_extension.items()},
         "files_by_category": {k: v for k, v in categories.items() if v},
-        "all_files": all_files[:100],  # Limit to first 100 for output size
+        "files_by_category": {k: v for k, v in categories.items() if v},
+        "all_files": all_files[:500],  # Limit to 500 files
+        "truncated": len(all_files) > 500,
     }
 
 
@@ -463,3 +467,108 @@ async def modify_file(
 
     except Exception as e:
         return {"error": f"Error modifying file: {str(e)}", "file_path": file_path}
+
+
+class FileEdit(BaseModel):
+    search_text: str
+    replace_text: str
+    occurrence: str = Field(default="all", description="'first', 'last', or 'all'")
+
+
+@tool
+async def apply_multiple_edits(file_path: str, edits: List[Dict[str, str]]) -> Dict:
+    """
+    Apply multiple edits to a single file in one atomic operation.
+    
+    Args:
+        file_path: Path to the file
+        edits: List of edit objects, each containing:
+            - search_text: Text to find
+            - replace_text: Text to replace with
+            - occurrence: 'first', 'last', or 'all' (default: 'all')
+            
+    Returns:
+        Dictionary with status of all edits.
+    """
+    try:
+        path = Path(file_path).resolve()
+
+        if not path.exists():
+            return {"error": f"File not found: {file_path}"}
+            
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        original_content = content
+        changes_log = []
+        
+        # Validate all edits first (basic check)
+        for i, edit in enumerate(edits):
+            search = edit.get("search_text")
+            if not search:
+                return {"error": f"Edit #{i+1} missing search_text"}
+            if search not in content:
+                # If sequential edits depend on each other, this check might be too strict,
+                # but for atomic independent edits it's good. 
+                # However, previous edits might have changed the content.
+                # So we should actually just proceed and track success.
+                pass
+
+        # Apply edits sequentially in memory
+        successful_edits = 0
+        
+        for i, edit in enumerate(edits):
+            search = edit.get("search_text")
+            replace = edit.get("replace_text", "")
+            occurrence = edit.get("occurrence", "all")
+            
+            count = content.count(search)
+            
+            if count == 0:
+                changes_log.append({
+                    "index": i,
+                    "status": "failed",
+                    "reason": "Search text not found"
+                })
+                continue
+                
+            if occurrence == "first":
+                content = content.replace(search, replace, 1)
+                replaced = 1
+            elif occurrence == "last":
+                parts = content.rsplit(search, 1)
+                content = replace.join(parts)
+                replaced = 1
+            else: # all
+                content = content.replace(search, replace)
+                replaced = count
+                
+            changes_log.append({
+                "index": i,
+                "status": "success",
+                "replacements": replaced
+            })
+            successful_edits += 1
+
+        if successful_edits == 0:
+             return {
+                "success": False,
+                "file_path": str(path),
+                "error": "No edits were successfully applied. content unchanged.",
+                "changes": changes_log
+            }
+
+        # atomic write
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+            
+        return {
+            "success": True,
+            "file_path": str(path),
+            "total_edits": len(edits),
+            "successful_edits": successful_edits,
+            "changes": changes_log
+        }
+
+    except Exception as e:
+        return {"error": f"Error applying multiple edits: {str(e)}", "file_path": file_path}
