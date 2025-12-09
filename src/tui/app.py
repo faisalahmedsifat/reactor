@@ -503,11 +503,20 @@ class ShellAgentTUI(App):
         self.query_one(StatusBar).agent_state = "thinking"
         dashboard.query_one(StateIndicator).state = "thinking"
 
-        # Send to bridge with execution mode
-        execution_mode = self.query_one(AgentDashboard).execution_mode
-        self.agent_worker = self.run_worker(
-            self.bridge.process_request(command, execution_mode), exclusive=True
-        )
+        # Route based on current agent
+        if self.current_agent_id == "main":
+            # Send to main agent via bridge
+            execution_mode = self.query_one(AgentDashboard).execution_mode
+            self.agent_worker = self.run_worker(
+                self.bridge.process_request(command, execution_mode), exclusive=True
+            )
+        else:
+            # Send to sub-agent via AgentManager
+            from src.tools.agent_tools import get_agent_manager
+            manager = get_agent_manager()
+            self.agent_worker = self.run_worker(
+                manager.send_message(self.current_agent_id, command), exclusive=True
+            )
 
     async def on_agent_message(self, agent_id: str, event_type: str, data) -> None:
         """Unified event handler for all agent events"""

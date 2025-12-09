@@ -278,6 +278,16 @@ class AgentBridge:
                     if node_name in ["thinking", "agent"]:
                         if "messages" in node_output and node_output["messages"]:
                             last_msg = node_output["messages"][-1]
+                            
+                            # Log to conversation history
+                            content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
+                            if content:
+                                if node_name == "thinking":
+                                    self.chat_logger.log_turn("thought", content)
+                                elif node_name == "agent":
+                                    self.chat_logger.log_turn("agent", content)
+                            
+                            # Emit to TUI
                             if self._message_callback:
                                 await self._message_callback("main", node_name, last_msg)
                             

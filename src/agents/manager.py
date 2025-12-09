@@ -89,6 +89,11 @@ class AgentManager:
         agent = self.get_agent(instance_id)
         await agent.stop()
 
+    async def send_message(self, instance_id: str, message: str):
+        """Send a message to a specific agent instance"""
+        agent = self.get_agent(instance_id)
+        await agent.send_message(message)
+
     def list_agents(self) -> List[Dict[str, str]]:
         """List all managed agents and their statuses"""
         listing = []
