@@ -117,6 +117,32 @@ class AgentInstance:
                     if content and node_name in ["thinking", "agent"]:
                         await self._emit_message(node_name, last_msg)
 
+                # Handle tool results for sub-agents
+                elif node_name == "tools":
+                    if "messages" in node_output:
+                        messages = node_output["messages"]
+                        if not isinstance(messages, list):
+                            messages = [messages]
+                        
+                        for msg in messages:
+                            # Import ToolMessage here to avoid circular imports if any (though usually fine)
+                            from langchain_core.messages import ToolMessage
+                            if isinstance(msg, ToolMessage):
+                                # Robust extraction (same as bridge)
+                                result_data = msg.artifact
+                                if not isinstance(result_data, dict):
+                                    try:
+                                        import json
+                                        result_data = json.loads(msg.content)
+                                    except (Exception):
+                                        result_data = msg.artifact if msg.artifact is not None else msg.content
+
+                                await self._emit_message("tool_result", {
+                                    "tool_name": msg.name,
+                                    "result": result_data,
+                                    "tool_call_id": msg.tool_call_id
+                                })
+
     async def _run_loop(self):
         """Initial execution loop using LangGraph"""
         try:

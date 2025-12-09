@@ -6,11 +6,32 @@ Used for analytical tasks like "analyze this project".
 """
 
 import os
+import difflib
 from pathlib import Path
 from typing import Dict, List, Optional
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
+
+def calculate_diff_stats(original_content: str, new_content: str) -> Dict[str, int]:
+    """Calculate lines added and removed between two strings."""
+    original_lines = original_content.splitlines()
+    new_lines = new_content.splitlines()
+    
+    matcher = difflib.SequenceMatcher(None, original_lines, new_lines)
+    added = 0
+    removed = 0
+    
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "replace":
+            removed += i2 - i1
+            added += j2 - j1
+        elif tag == "delete":
+            removed += i2 - i1
+        elif tag == "insert":
+            added += j2 - j1
+            
+    return {"added": added, "removed": removed}
 
 
 @tool
@@ -141,7 +162,6 @@ async def list_project_files(
         "total_files": total_files,
         "total_directories": total_dirs,
         "files_by_extension": {k: len(v) for k, v in files_by_extension.items()},
-        "files_by_category": {k: v for k, v in categories.items() if v},
         "files_by_category": {k: v for k, v in categories.items() if v},
         "all_files": all_files[:500],  # Limit to 500 files
         "truncated": len(all_files) > 500,
@@ -369,17 +389,39 @@ async def write_file(file_path: str, content: str, mode: str = "create") -> Dict
         # Create parent directories if needed
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Determine write mode
+        # Determine write mode and capture original content for diff
         if mode == "append":
             write_mode = "a"
             operation = "appended"
+            original_content = "" # For append, we treat original as empty for diffing added lines (conceptually)
+            # Or better: read existing to show where append happened? 
+            # For simplistic "lines added" stats, "original" vs "new" works.
+            # If we want exact +added, we should compare (old) vs (old + new).
+            if file_exists:
+                 with open(path, "r", encoding="utf-8") as f:
+                    original_content = f.read()
+            else:
+                original_content = ""
         else:  # mode == "write" or "create"
             write_mode = "w"
             operation = "created" if not file_exists else "overwritten"
+            if file_exists and mode == "write":
+                 with open(path, "r", encoding="utf-8") as f:
+                    original_content = f.read()
+            else:
+                original_content = ""
 
         # Write the file
         with open(path, write_mode, encoding="utf-8") as f:
             f.write(content)
+            
+        # Read back purely for diff calculation
+        new_file_content = ""
+        with open(path, "r", encoding="utf-8") as f:
+             new_file_content = f.read()
+
+        # Calculate diff stats
+        diff_stats = calculate_diff_stats(original_content, new_file_content)
 
         # Get file stats
         file_size = path.stat().st_size
@@ -392,6 +434,7 @@ async def write_file(file_path: str, content: str, mode: str = "create") -> Dict
             "size_bytes": file_size,
             "lines_written": lines_written,
             "mode": mode,
+            "diff": diff_stats
         }
 
     except PermissionError:
@@ -399,28 +442,6 @@ async def write_file(file_path: str, content: str, mode: str = "create") -> Dict
     except Exception as e:
         return {"error": f"Error writing file: {str(e)}", "file_path": file_path}
 
-
-import difflib
-
-def calculate_diff_stats(original_content: str, new_content: str) -> Dict[str, int]:
-    """Calculate lines added and removed between two strings."""
-    original_lines = original_content.splitlines()
-    new_lines = new_content.splitlines()
-    
-    matcher = difflib.SequenceMatcher(None, original_lines, new_lines)
-    added = 0
-    removed = 0
-    
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == 'replace':
-            removed += i2 - i1
-            added += j2 - j1
-        elif tag == 'delete':
-            removed += i2 - i1
-        elif tag == 'insert':
-            added += j2 - j1
-            
-    return {"added": added, "removed": removed}
 
 @tool
 async def modify_file(
@@ -504,14 +525,17 @@ class FileEdit(BaseModel):
 
 
 @tool
-async def apply_multiple_edits(file_path: str, edits: List[Dict[str, str]]) -> Dict:
+async def edit_file(file_path: str, edits: List[Dict[str, str]]) -> Dict:
     """
     Apply multiple edits to a single file in one atomic operation.
+    
+    Use this tool when you need to make more than one change to a file. 
+    It is faster, safer, and ensures all edits are applied together or none at all.
     
     Args:
         file_path: Path to the file
         edits: List of edit objects, each containing:
-            - search_text: Text to find
+            - search_text: Text to find (must match exactly)
             - replace_text: Text to replace with
             - occurrence: 'first', 'last', or 'all' (default: 'all')
             

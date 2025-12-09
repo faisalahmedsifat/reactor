@@ -19,9 +19,10 @@ from src.tui.widgets import (
     FileExplorer,
     CodeViewer,
     AgentDashboard,
-    FuzzyFinder,
-    CommandPalette,
+    StatusBar,
 )
+from src.tui.screens.fuzzy_finder_modal import FuzzyFinder
+from src.tui.screens.command_palette_modal import CommandPalette
 from textual.widgets import (
     Header,
     Footer,
@@ -35,7 +36,7 @@ from textual.widgets import (
     Log,
     DirectoryTree,
 )
-from src.tui.widgets.file_reference_modal import FileReferenceModal
+from src.tui.screens.file_reference_modal import FileReferenceModal
 from src.tui.widgets.todo_panel import TODOPanel
 from src.tui.widgets.agent_ui import (
     StateIndicator,
@@ -51,18 +52,6 @@ from src.models import ExecutionResult, ExecutionPlan
 from textual.widgets import Static
 
 
-class StatusBar(Static):
-    """Bottom status bar"""
-
-    agent_state = reactive("idle")
-    status = reactive("Ready")
-    execution_mode = reactive("sequential")
-
-    def render(self):
-        mode_display = (
-            "⏩ Sequential" if self.execution_mode == "sequential" else "⚡ Parallel"
-        )
-        return f" {self.status} | State: {self.agent_state} | Mode: {mode_display} "
 
 
 
@@ -70,7 +59,7 @@ class StatusBar(Static):
 class ShellAgentTUI(App):
     """Powerhouse TUI for ReACTOR"""
 
-    CSS_PATH = "styles.tcss"
+    CSS_PATH = "styles/app.tcss"
     TITLE = "ReACTOR IDE"
 
     BINDINGS = [
@@ -369,7 +358,7 @@ class ShellAgentTUI(App):
     
     async def _handle_modal_command(self, modal_command: str, log_viewer) -> None:
         """Handle modal-triggering commands"""
-        from src.tui.widgets.agent_editor_modal import AgentEditorModal, AgentDetailModal
+        from src.tui.screens.agent_editor_modal import AgentEditorModal, AgentDetailModal
         
         if modal_command == "MODAL:new-agent":
             # Open agent creation modal
@@ -531,6 +520,7 @@ class ShellAgentTUI(App):
             
             # Handle message events (thinking/agent nodes)
             if event_type in ["thinking", "agent"]:
+                self.query_one(StatusBar).agent_state = "thinking"
                 content = data.content if hasattr(data, "content") else str(data)
                 log_type = "thought" if event_type == "thinking" else "agent"
                 if content and content.strip():
@@ -538,6 +528,7 @@ class ShellAgentTUI(App):
             
             # Handle tool_call events
             elif event_type == "tool_call":
+                self.query_one(StatusBar).agent_state = "executing"
                 tool_name = data["tool_name"]
                 args = data["args"]
                 
@@ -603,11 +594,18 @@ class ShellAgentTUI(App):
                 # --- File Operations Feedback ---
                 elif tool_name == "write_file" and not is_error:
                     path = result.get("file_path", "unknown")
-                    # Try to display basename for brevity
                     basename = path.split("/")[-1] if path else "unknown"
                     lines = result.get("lines_written", "?")
                     op = result.get("operation", "wrote")
-                    log_viewer.add_log(f"📝 {op.capitalize()}: {basename} ({lines} lines)", "info")
+                    
+                    diff = result.get("diff", {})
+                    added = diff.get("added", 0)
+                    removed = diff.get("removed", 0)
+                    diff_str = ""
+                    if added > 0 or removed > 0:
+                        diff_str = f" (+{added} -{removed})"
+                    
+                    log_viewer.add_log(f"📝 {op.capitalize()}: {basename} ({lines} lines written){diff_str}", "info")
                 
                 elif tool_name == "modify_file" and not is_error:
                     path = result.get("file_path", "unknown")
@@ -623,11 +621,13 @@ class ShellAgentTUI(App):
                         
                     log_viewer.add_log(f"✏️ Modified: {basename} ({replacements} changes){diff_str}", "info")
 
-                elif tool_name == "apply_multiple_edits" and not is_error:
+                elif (tool_name == "edit_file" or tool_name == "apply_multiple_edits") and not is_error:
+                    # Added legacy check just in case
                     path = result.get("file_path", "unknown")
                     basename = path.split("/")[-1] if path else "unknown"
                     successful = result.get("successful_edits", 0)
                     total = result.get("total_edits", 0)
+                    
                     diff = result.get("diff", {})
                     added = diff.get("added", 0)
                     removed = diff.get("removed", 0)
@@ -651,6 +651,10 @@ class ShellAgentTUI(App):
                 elif not is_error and tool_name not in ["execute_shell_command", "create_todo", "complete_todo", "update_todo", "list_todos", "write_file", "modify_file", "apply_multiple_edits", "read_file_content"]:
                      # Generic success for other tools
                      log_viewer.add_log(f"✅ Tool '{tool_name}' completed", "info")
+                
+                # After any tool result, if the agent is not yet complete, go back to thinking
+                if self.query_one(StatusBar).agent_state not in ["complete", "error", "idle"]:
+                    self.query_one(StatusBar).agent_state = "thinking"
         
         except Exception as e:
             self.logger.error(f"Error handling agent event: {e}")

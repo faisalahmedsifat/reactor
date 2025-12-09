@@ -17,6 +17,33 @@ from src.models import ExecutionResult, ExecutionPlan, RiskLevel, Command
 from src.tui.widgets.suggestions_list import SuggestionsList
 
 
+class WelcomeWidget(Static):
+    """Welcome screen with branding and prompts"""
+    
+    def compose(self) -> ComposeResult:
+        branding = """
+[bold cyan]
+    ____                  ___     ______  ______  ____  ____ 
+   / __ \  ___   ____    /   |   / ____/ /_  __/ / __ \/ __ \\
+  / /_/ / / _ \ / __ \  / /| |  / /       / /   / / / / /_/ /
+ / _, _/ /  __// / / / / ___ | / /___    / /   / /_/ / _, _/ 
+/_/ |_|  \___//_/ /_/ /_/  |_| \____/   /_/    \____/_/ |_|  
+[/]                                                             
+[dim]Advanced Agentic Environment[/]
+"""
+        yield Static(branding, classes="welcome-branding")
+        yield Label("Try these prompts to get started:", classes="welcome-subtitle")
+        
+        prompts = [
+            "Analyze this repository structure",
+            "Refactor src/tui/app.tcss to be more modern",
+            "Create a new agent for database management",
+            "Explain how the detailed execution plan works",
+        ]
+        
+        for prompt in prompts:
+            yield Static(f"⚡ [bold]{prompt}[/]", classes="welcome-prompt")
+
 class LogViewer(VerticalScroll):
     """Scrollable log viewer with collapsible thoughts support"""
 
@@ -25,11 +52,25 @@ class LogViewer(VerticalScroll):
         self.can_focus = True
         self.current_activity = []
         self.pending_activity_widget = None
+        self.welcome_widget = None
+
+    def on_mount(self) -> None:
+        """Show welcome message on mount if empty"""
+        self.welcome_widget = WelcomeWidget()
+        self.mount(self.welcome_widget)
+
+    def remove_welcome_message(self):
+        """Remove welcome message if it exists"""
+        if self.welcome_widget:
+            self.welcome_widget.remove()
+            self.welcome_widget = None
 
     def add_activity(self, message: str) -> None:
         """Add an activity/tool call to the current execution session"""
         if not message.strip():
             return
+            
+        self.remove_welcome_message()
 
         self.current_activity.append(message)
 
@@ -85,6 +126,8 @@ class LogViewer(VerticalScroll):
         """Add a log message with styling"""
         if not message.strip():
             return
+
+        self.remove_welcome_message()
 
         from rich.markdown import Markdown as RichMarkdown
 
@@ -159,30 +202,58 @@ class LogViewer(VerticalScroll):
         # Create Panel and mount as Static widget
         # Needs to be created before container
         # Use CSS classes for styling instead of hardcoded inline styles
-        panel_widget = Static(classes=f"log-panel log-{level}")
-        
-        # We wrap content in a Panel object for the border/title, but let CSS handle valid styles where possible
-        # Textual Panel object styles are limited, so we keep border styling here but move colors to CSS
-        panel_widget.update(
-            Panel(
-                md,
-                border_style=border_style,
-                title=title,
-                title_align="left" if title == "[bold]Agent[/]" else "right",
-                padding=(0, 1),
-                expand=True,
-            )
-        )
+        # Create Panel and mount as Static widget
+        # Determine specific class for styling
+        msg_class = f"log-{level}"
+        container_classes = f"message-container {msg_class}" 
+        is_chat_message = False
 
-        # Add copy button (small, neon style)
-        copy_btn = Button("📋", variant="default", classes="copy-btn")
+        if level == "info" and title == "[bold]User[/]":
+            msg_class = "log-user"
+            container_classes = f"message-container log-user"
+            is_chat_message = True
+        elif title == "[bold]Agent[/]": 
+            msg_class = "log-agent"
+            container_classes = f"message-container log-agent"
+            is_chat_message = True
+        elif level == "agent":
+             msg_class = "log-agent"
+             container_classes = f"message-container log-agent"
+             is_chat_message = True
+        
+        # We perform styling on the Container now (borders, backgrounds)
+        # So the inner static widget (panel_widget) should generally be transparent/unbordered
+        # unless it's a special panel type.
+        
+        panel_widget = Static(classes="message-content")
+        
+        # For Chat Messages (User/Agent), we DROP the rich.Panel because the CSS provides the "bubble" look.
+        # For other types (Error, Plan, etc.) we keep the Panel for its specific visual formatting.
+        if is_chat_message:
+            panel_widget.update(md)
+        else:
+            # For System/Other messages, keep the 'Rich' Panel look for now
+            # But we might need to be careful about double borders if container has them too.
+            # Best approach: if it has rich.Panel, the container acts as a wrapper.
+            panel_widget.update(
+                Panel(
+                    md,
+                    border_style=border_style,
+                    title=title,
+                    title_align="left" if level == "agent" else "right",
+                    padding=(0, 1),
+                    expand=True,
+                )
+            )
+
+        # Add copy button (Text icon: CPY)
+        copy_btn = Button("COPY", variant="default", classes="copy-btn")
         copy_btn.tooltip = "Copy to clipboard"
-        # Store content for copying
         copy_btn.copy_content = content
         
         # Create Container for message and copy button
-        # Pass children directly to constructor to avoid MountError
-        container = Container(panel_widget, copy_btn, classes="message-container")
+        # The container uses the `container_classes` calculated above
+        container = Container(panel_widget, copy_btn, classes=container_classes)
 
         self.mount(container)
         self.scroll_end(animate=False)
@@ -194,15 +265,10 @@ class LogViewer(VerticalScroll):
                 # Try Textual's clipboard API
                 self.app.copy_to_clipboard(event.button.copy_content)
                 self.notify(
-                    "Copied to clipboard!", title="Success", severity="information"
+                    "Copied!", title="Success", severity="information"
                 )
             except Exception:
-                # Fallback
-                self.notify(
-                    "Clipboard not supported. Use Shift+Click to select.",
-                    title="Info",
-                    severity="warning",
-                )
+                pass
 
 
 class LiveExecutionPanel(Vertical):
@@ -300,31 +366,51 @@ class LiveExecutionPanel(Vertical):
 
 
 class StateIndicator(Static):
-    """Visual indicator of agent state"""
+    """Visual indicator of agent state with animation"""
 
     DISPLAY_STATES = {
-        "thinking": ("dots", "Thinking...", "yellow"),
-        "executing": ("bouncingBar", "Executing...", "green"),
-        "error": ("point", "Error", "red"),
-        "complete": ("line", "Done", "blue"),
+        "thinking": ("Thinking...", "yellow"),
+        "executing": ("Executing...", "green"),
+        "error": ("Error", "red"),
+        "complete": ("Done", "blue"),
+        "idle": ("Idle", "dim"),
+        "compacting": ("Compacting...", "magenta"),
     }
+    
+    # Frames for the spinner animation
+    SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
     state: reactive[str] = reactive("idle")
+    spinner_index = reactive(0)
 
-    def render(self) -> Panel:
+    def on_mount(self) -> None:
+        """Start the animation timer"""
+        self.set_interval(0.1, self.advance_spinner)
+
+    def advance_spinner(self) -> None:
+        """Advance the spinner frame if active"""
+        if self.state in ["thinking", "executing", "compacting"]:
+            self.spinner_index = (self.spinner_index + 1) % len(self.SPINNER_FRAMES)
+
+    def render(self) -> str:
+        # Simplified render returning a string/Renderable instead of a Panel
+        # allowing CSS to control the container style (badge look)
         if self.state == "idle":
-            return Panel("[dim]Idle[/dim]", border_style="dim", expand=True)
+             return "Idle"
 
-        spinner_name, text, color = self.DISPLAY_STATES.get(
-            self.state, ("dots", "Processing...", "white")
+        text, color = self.DISPLAY_STATES.get(
+            self.state, ("Processing...", "white")
         )
 
-        return Panel(
-            Spinner(spinner_name, text=text, style=color),
-            border_style=color,
-            title=f"[{color}]{self.state.title()}[/{color}]",
-            expand=True,
-        )
+        # Only show spinner if state is active
+        if self.state in ["thinking", "executing", "compacting"]:
+            frame = self.SPINNER_FRAMES[self.spinner_index]
+            content = f" {frame} {text} "
+        else:
+            content = f" {text} "
+
+        # Return rich Text object with style
+        return Text(content, style=color)
 
 
 class ExecutionPlanDisplay(Container):

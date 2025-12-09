@@ -39,7 +39,7 @@ def create_simple_shell_agent(exclude_agent_tools: bool = False):
         file_tools.read_file_content,
         file_tools.write_file,
         file_tools.modify_file,
-        file_tools.apply_multiple_edits,
+        file_tools.edit_file,
         file_tools.list_project_files,
         file_tools.search_in_files,
         web_tools.web_search,

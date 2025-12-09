@@ -28,7 +28,7 @@ Screen {
 #main-layout {
     layout: horizontal;
     width: 100%;
-    height: 100%;
+    height: 1fr;
     padding: 1;
 }
 
@@ -111,45 +111,108 @@ LogViewer {
     width: 100%;
     background: $bg-secondary;
     overflow-y: auto;
-    overflow-x: hidden; /* Force text wrap, no horizontal scroll */
+    overflow-x: hidden; 
+    padding: 1; /* Add padding to the viewer itself */
 }
 
-/* Chat Bubbles */
-.message-user {
-    background: $bg-tertiary;
+/* Chat Messages */
+.message-container {
+    height: auto;
+    margin-bottom: 1;
+    padding: 0 1; 
     border: none;
-    border-right: solid $accent-purple;
+    layout: horizontal; 
+}
+
+/* User Bubble */
+.message-container.log-user {
+    background: $bg-tertiary;
+    border-right: thick $accent-purple;
+    margin-left: 4;
+}
+
+/* Agent Bubble */
+.message-container.log-agent {
+    background: $bg-tertiary;
+    border-left: thick $accent-cyan;
+    margin-right: 4;
+}
+
+/* Inner content text wrapper */
+.message-content {
+    width: 1fr;
+    height: auto;
+    background: transparent;
+    border: none;
     padding: 1;
-    margin: 1 1 1 4;
+}
+
+/* Copy Button - Text Icon */
+.copy-btn {
+    dock: right;
+    width: 5;
+    height: 1;
+    background: transparent;
+    color: $text-dim;
+    border: none;
+    opacity: 50%;
+    margin-top: 1; /* Align with text padding */
+}
+
+.copy-btn:hover {
+    color: $accent-cyan;
+    opacity: 100%;
+    background: transparent;
+    text-style: bold;
+}
+
+/* Welcome Widget Styles */
+WelcomeWidget {
+    height: 100%;
+    align: center middle;
+    padding: 2;
+}
+
+.welcome-branding {
+    text-align: center;
+    color: $accent-cyan;
+    margin-bottom: 2;
+}
+
+.welcome-subtitle {
+    text-align: center;
+    color: $text-dim;
+    margin-bottom: 1;
+}
+
+.welcome-prompt {
+    margin: 1 4;
+    padding: 1 2;
+    background: $bg-tertiary;
+    border: solid $border-dim;
+    text-align: center;
     color: $text-primary;
 }
 
-.message-agent {
-    background: $bg-tertiary;
-    border: none;
-    border-left: solid $accent-cyan;
-    padding: 1;
-    margin: 1 4 1 1;
-    color: $text-primary;
+.welcome-prompt:hover {
+    background: $accent-cyan;
+    color: $bg-primary;
+    border: solid $accent-cyan;
 }
 
+
+/* Legacy / Other panel styles */
 .log-panel {
     background: $bg-tertiary;
-    color: $text-primary;
-    margin-bottom: 0;
-    padding: 0;
+    padding: 1 2;
+    border: none; 
+    height: auto;
 }
 
-/* Specific log levels if needed, though colors are handled by Panel border */
-.log-error {
-    color: $accent-pink;
-}
-
-.log-thought {
-    color: $text-dim;
-    text-style: italic;
-    background: transparent;
-}
+/* Specific styling for message types based on border colors passed from python or classes */
+.log-info { border-left: solid $accent-cyan; }
+.log-error { border-left: thick $accent-pink; background: #2a0a1a; }
+.log-thought { border-left: dashed $text-dim; color: $text-dim; text-style: italic; }
 
 /* Dashboard Layout (Column 2 internals) */
 #dashboard-container {
@@ -158,19 +221,44 @@ LogViewer {
 }
 
 #dashboard-header {
-    height: auto;
+    height: 3;
     dock: top;
     background: $bg-secondary;
     padding: 0 1;
+    margin-bottom: 1;
+    border-bottom: solid $border-dim;
+    align-vertical: middle;
 }
 
-#log-viewer {
-    height: 1fr;
-    overflow-y: auto;
-    overflow-x: hidden;
+/* State Indicator - Badge Style */
+StateIndicator {
+    background: transparent;
+    padding: 0 1;
+    height: 1;
+    min-width: 10;
+    align: center middle;
 }
 
-/* Agent Input */
+/* Remove Panel border from StateIndicator content if possible via CSS, 
+   but python code uses Panel widget which has its own border. 
+   We'll target the Panel inside StateIndicator if generic selector works, 
+   or rely on Python change. */
+
+#mode-toggle {
+    margin-left: 2;
+    background: $bg-tertiary;
+    color: $accent-cyan;
+    border: solid $accent-cyan;
+    height: 3;
+    min-width: 12;
+}
+
+#mode-toggle:hover {
+    background: $accent-cyan;
+    color: $bg-primary;
+}
+
+/* Agent Input Area */
 #input-container {
     height: auto;
     dock: bottom;
@@ -184,136 +272,29 @@ LogViewer {
     border: solid $border-dim;
     color: $accent-cyan;
     padding: 0 1;
-    height: 3; /* Fixed height for chat input */
+    height: 3; 
 }
 
 #agent-input:focus {
     border: solid $accent-cyan;
+    /* box-shadow not supported in Textual */
 }
 
-
-/* Context / Code Viewer */
-CodeViewer {
-    background: $bg-secondary;
-    padding: 0;
-}
-
-#code-header {
-    background: $bg-tertiary;
-    color: $text-secondary;
-    padding: 0 1;
-    height: 1;
-    dock: top;
-}
-
-#code-content {
-    padding: 1;
-    background: $bg-secondary;
-}
-
-/* Live Execution Panel */
-LiveExecutionPanel {
-    background: $bg-secondary;
-    border: solid $accent-yellow;
-    padding: 1;
-    height: auto;
-    overflow-y: auto;
-}
-
-/* LiveExecutionPanel visibility is managed by class or default block */
-
-/* Execution Plan Display */
-ExecutionPlanDisplay {
-    background: $bg-secondary;
-    border: solid $accent-cyan;
-    padding: 1;
-    height: auto;
-    max-height: 30;
-}
-
-#plan-tree {
-    background: $bg-tertiary;
-    color: $text-primary;
-    scrollbar-gutter: stable;
-}
-
-#plan-tree > .tree--cursor {
-    background: $bg-secondary;
-    color: $accent-cyan;
-    text-style: bold;
-}
-
-/* Results Panel */
-ResultsPanel {
-    background: $bg-secondary;
-    border: solid $accent-green;
-    padding: 1;
-    height: auto;
-    max-height: 20;
-}
-
-/* State Indicator */
-StateIndicator {
-    background: $bg-tertiary;
-    padding: 0 1;
-    height: 3;
-}
-
-/* Dashboard Header */
-#dashboard-header {
-    height: auto;
-    dock: top;
-    background: $bg-secondary;
-    padding: 1;
-    layout: horizontal;
-}
-
-#mode-toggle {
-    margin-left: 1;
-    background: $accent-cyan;
-    color: $bg-primary;
-    border: none;
-}
-
-#mode-toggle:hover {
-    background: $accent-purple;
-}
-
-/* Status Bar / Footer */
-/* Message Container & Copy Button */
-.message-container {
-    height: auto;
-    margin-bottom: 1;
-}
-
+/* Copy Button - Subtle */
 .copy-btn {
     dock: right;
-    min-width: 4;
-    width: 6;
+    width: 4;
     height: 1;
     background: transparent;
-    color: $accent-cyan;
+    color: $text-dim;
     border: none;
-    margin-top: 0;
-    margin-right: 2;
+    opacity: 50%;
 }
 
 .copy-btn:hover {
-    color: $bg-primary;
-    background: $accent-cyan;
-}
-
-#copy-live-btn {
-    background: $bg-tertiary;
     color: $accent-cyan;
-    border: solid $accent-cyan;
-    height: 3;
-    margin: 1;
-}
-
-#copy-live-btn:hover {
-    background: $accent-cyan;
-    color: $bg-primary;
+    opacity: 100%;
+    background: transparent;
 }
 
 .cyber-textarea {

@@ -310,9 +310,22 @@ class AgentBridge:
                             
                             for msg in messages:
                                 if isinstance(msg, ToolMessage) and self._message_callback:
+                                    # Robustly extract result (artifact or parsed content)
+                                    result_data = msg.artifact
+                                    
+                                    # Fallback: If artifact is missing/string, try parsing content as JSON
+                                    if not isinstance(result_data, dict):
+                                        try:
+                                            import json
+                                            # Content might be a JSON string of the result dict
+                                            result_data = json.loads(msg.content)
+                                        except (json.JSONDecodeError, TypeError):
+                                            # If not JSON, use the artifact or content as is
+                                            result_data = msg.artifact if msg.artifact is not None else msg.content
+
                                     await self._message_callback("main", "tool_result", {
                                         "tool_name": msg.name,
-                                        "result": msg.artifact,
+                                        "result": result_data,
                                         "tool_call_id": msg.tool_call_id
                                     })
 
