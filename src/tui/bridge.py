@@ -251,7 +251,6 @@ class AgentBridge:
             "results": [],
             # Keep other keys for potential compatibility
             "intent": None,
-            "execution_plan": None,
             "current_command_index": 0,
             "retry_count": 0,
             "requires_approval": False,

@@ -12,7 +12,6 @@ class ShellAgentState(TypedDict):
     user_input: str
     system_info: Optional[dict]
     intent: Optional[CommandIntent]
-    execution_plan: Optional[ExecutionPlan]
     current_command_index: int
     results: List[ExecutionResult]
     retry_count: int
@@ -24,3 +23,4 @@ class ShellAgentState(TypedDict):
     analysis_data: Optional[Dict[str, Any]]  # New: for analytical workflow
     active_agent: Optional[str]  # New: current agent name
     active_skills: List[str]  # New: active skill names
+    next_step: Optional[str]  # New: next step to execute

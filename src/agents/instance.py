@@ -165,7 +165,6 @@ class AgentInstance:
                 "user_input": self.task,
                 "system_info": None,
                 "intent": None,
-                "execution_plan": None,
                 "current_command_index": 0,
                 "results": [],
                 "retry_count": 0,
