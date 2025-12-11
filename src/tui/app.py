@@ -172,9 +172,7 @@ class ShellAgentTUI(App):
             except:
                 pass
 
-        self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
-            "Welcome to the Powerhouse TUI!", "info"
-        )
+
 
     def action_toggle_sidebar(self) -> None:
         """Show/Hide Sidebar"""
