@@ -22,13 +22,14 @@ JOKES = [
 
 SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
+
 class StatusBar(Static):
     """Bottom status bar with spinner and jokes"""
 
     agent_state = reactive("idle")
     status = reactive("Ready")
     execution_mode = reactive("sequential")
-    
+
     # Internal state for spinner
     spinner_index = reactive(0)
     current_joke = reactive("")
@@ -51,7 +52,7 @@ class StatusBar(Static):
         mode_display = (
             "⏩ Sequential" if self.execution_mode == "sequential" else "⚡ Parallel"
         )
-        
+
         if self.agent_state == "thinking":
             spinner = SPINNER_FRAMES[self.spinner_index]
             # Show spinner + joke + mode

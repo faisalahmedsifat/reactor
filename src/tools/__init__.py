@@ -11,6 +11,7 @@ from src.tools import (
     todo_tools,
     grep_and_log_tools,
     agent_tools,  # New: agent management tools
+    user_communication_tools,  # New: user communication and task termination tools
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "todo_tools",
     "grep_and_log_tools",
     "agent_tools",
+    "user_communication_tools",
 ]

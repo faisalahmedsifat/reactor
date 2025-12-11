@@ -239,10 +239,10 @@ Commands are categorized by risk:
 
 ### 1. Graph Workflow ([src/graph.py](file:///home/faisal/Workspace/Dev/Personal/reactor/src/graph.py))
 
-The `create_simple_shell_agent()` function builds the LangGraph workflow:
+The `create_shell_agent()` function builds the LangGraph workflow:
 
 ```python
-def create_simple_shell_agent():
+def create_shell_agent():
     workflow = StateGraph(ShellAgentState)
     
     # Add nodes
@@ -792,7 +792,7 @@ def test_my_tool_basic():
 
 | Function | Location | Purpose |
 |----------|----------|---------|
-| `create_simple_shell_agent()` | src/graph.py | Creates LangGraph workflow |
+| `create_shell_agent()` | src/graph.py | Creates LangGraph workflow |
 | `thinking_node()` | src/nodes/thinking_nodes.py | Pure reasoning step |
 | `agent_node()` | src/nodes/agent_nodes.py | Tool selection/execution |
 | `get_llm_client()` | src/llm/client.py | Returns configured LLM |

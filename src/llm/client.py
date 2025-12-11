@@ -15,7 +15,7 @@ def get_llm_client() -> BaseChatModel:
     """
     Lazy load LLM client - cached for performance.
     Returns raw BaseChatModel for LangGraph.
-    
+
     Configuration is read from environment variables:
     - LLM_PROVIDER (default: anthropic)
     - LLM_MODEL (default: claude-sonnet-4-20250514)

@@ -17,11 +17,11 @@ def calculate_diff_stats(original_content: str, new_content: str) -> Dict[str, i
     """Calculate lines added and removed between two strings."""
     original_lines = original_content.splitlines()
     new_lines = new_content.splitlines()
-    
+
     matcher = difflib.SequenceMatcher(None, original_lines, new_lines)
     added = 0
     removed = 0
-    
+
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "replace":
             removed += i2 - i1
@@ -30,7 +30,7 @@ def calculate_diff_stats(original_content: str, new_content: str) -> Dict[str, i
             removed += i2 - i1
         elif tag == "insert":
             added += j2 - j1
-            
+
     return {"added": added, "removed": removed}
 
 
@@ -393,12 +393,12 @@ async def write_file(file_path: str, content: str, mode: str = "create") -> Dict
         if mode == "append":
             write_mode = "a"
             operation = "appended"
-            original_content = "" # For append, we treat original as empty for diffing added lines (conceptually)
-            # Or better: read existing to show where append happened? 
+            original_content = ""  # For append, we treat original as empty for diffing added lines (conceptually)
+            # Or better: read existing to show where append happened?
             # For simplistic "lines added" stats, "original" vs "new" works.
             # If we want exact +added, we should compare (old) vs (old + new).
             if file_exists:
-                 with open(path, "r", encoding="utf-8") as f:
+                with open(path, "r", encoding="utf-8") as f:
                     original_content = f.read()
             else:
                 original_content = ""
@@ -406,7 +406,7 @@ async def write_file(file_path: str, content: str, mode: str = "create") -> Dict
             write_mode = "w"
             operation = "created" if not file_exists else "overwritten"
             if file_exists and mode == "write":
-                 with open(path, "r", encoding="utf-8") as f:
+                with open(path, "r", encoding="utf-8") as f:
                     original_content = f.read()
             else:
                 original_content = ""
@@ -414,11 +414,11 @@ async def write_file(file_path: str, content: str, mode: str = "create") -> Dict
         # Write the file
         with open(path, write_mode, encoding="utf-8") as f:
             f.write(content)
-            
+
         # Read back purely for diff calculation
         new_file_content = ""
         with open(path, "r", encoding="utf-8") as f:
-             new_file_content = f.read()
+            new_file_content = f.read()
 
         # Calculate diff stats
         diff_stats = calculate_diff_stats(original_content, new_file_content)
@@ -434,7 +434,7 @@ async def write_file(file_path: str, content: str, mode: str = "create") -> Dict
             "size_bytes": file_size,
             "lines_written": lines_written,
             "mode": mode,
-            "diff": diff_stats
+            "diff": diff_stats,
         }
 
     except PermissionError:
@@ -472,7 +472,7 @@ async def modify_file(
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        original_content = content # Keep for diffing
+        original_content = content  # Keep for diffing
 
         # Count occurrences
         occurrences_found = content.count(search_text)
@@ -511,7 +511,7 @@ async def modify_file(
             "occurrences_found": occurrences_found,
             "replacements_made": replacements,
             "operation": f"replaced {replacements} occurrence(s)",
-            "diff": diff_stats
+            "diff": diff_stats,
         }
 
     except Exception as e:
@@ -528,17 +528,17 @@ class FileEdit(BaseModel):
 async def edit_file(file_path: str, edits: List[Dict[str, str]]) -> Dict:
     """
     Apply multiple edits to a single file in one atomic operation.
-    
-    Use this tool when you need to make more than one change to a file. 
+
+    Use this tool when you need to make more than one change to a file.
     It is faster, safer, and ensures all edits are applied together or none at all.
-    
+
     Args:
         file_path: Path to the file
         edits: List of edit objects, each containing:
             - search_text: Text to find (must match exactly)
             - replace_text: Text to replace with
             - occurrence: 'first', 'last', or 'all' (default: 'all')
-            
+
     Returns:
         Dictionary with status of all edits.
     """
@@ -547,13 +547,13 @@ async def edit_file(file_path: str, edits: List[Dict[str, str]]) -> Dict:
 
         if not path.exists():
             return {"error": f"File not found: {file_path}"}
-            
+
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
-            
+
         original_content = content
         changes_log = []
-        
+
         # Validate all edits first (basic check)
         for i, edit in enumerate(edits):
             search = edit.get("search_text")
@@ -561,29 +561,27 @@ async def edit_file(file_path: str, edits: List[Dict[str, str]]) -> Dict:
                 return {"error": f"Edit #{i+1} missing search_text"}
             if search not in content:
                 # If sequential edits depend on each other, this check might be too strict,
-                # but for atomic independent edits it's good. 
+                # but for atomic independent edits it's good.
                 # However, previous edits might have changed the content.
                 # So we should actually just proceed and track success.
                 pass
 
         # Apply edits sequentially in memory
         successful_edits = 0
-        
+
         for i, edit in enumerate(edits):
             search = edit.get("search_text")
             replace = edit.get("replace_text", "")
             occurrence = edit.get("occurrence", "all")
-            
+
             count = content.count(search)
-            
+
             if count == 0:
-                changes_log.append({
-                    "index": i,
-                    "status": "failed",
-                    "reason": "Search text not found"
-                })
+                changes_log.append(
+                    {"index": i, "status": "failed", "reason": "Search text not found"}
+                )
                 continue
-                
+
             if occurrence == "first":
                 content = content.replace(search, replace, 1)
                 replaced = 1
@@ -591,23 +589,21 @@ async def edit_file(file_path: str, edits: List[Dict[str, str]]) -> Dict:
                 parts = content.rsplit(search, 1)
                 content = replace.join(parts)
                 replaced = 1
-            else: # all
+            else:  # all
                 content = content.replace(search, replace)
                 replaced = count
-                
-            changes_log.append({
-                "index": i,
-                "status": "success",
-                "replacements": replaced
-            })
+
+            changes_log.append(
+                {"index": i, "status": "success", "replacements": replaced}
+            )
             successful_edits += 1
 
         if successful_edits == 0:
-             return {
+            return {
                 "success": False,
                 "file_path": str(path),
                 "error": "No edits were successfully applied. content unchanged.",
-                "changes": changes_log
+                "changes": changes_log,
             }
 
         # Calculate diff stats
@@ -616,15 +612,18 @@ async def edit_file(file_path: str, edits: List[Dict[str, str]]) -> Dict:
         # atomic write
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
-            
+
         return {
             "success": True,
             "file_path": str(path),
             "total_edits": len(edits),
             "successful_edits": successful_edits,
             "changes": changes_log,
-            "diff": diff_stats
+            "diff": diff_stats,
         }
 
     except Exception as e:
-        return {"error": f"Error applying multiple edits: {str(e)}", "file_path": file_path}
+        return {
+            "error": f"Error applying multiple edits: {str(e)}",
+            "file_path": file_path,
+        }

@@ -52,10 +52,6 @@ from src.models import ExecutionResult, ExecutionPlan
 from textual.widgets import Static
 
 
-
-
-
-
 class ShellAgentTUI(App):
     """Powerhouse TUI for ReACTOR"""
 
@@ -87,11 +83,15 @@ class ShellAgentTUI(App):
 
         # Conditional logging setup
         if self.debug_mode:
-            logging.basicConfig(level=logging.DEBUG, filename="debug_tui.log", filemode="w")
+            logging.basicConfig(
+                level=logging.DEBUG, filename="debug_tui.log", filemode="w"
+            )
         else:
             # Configure a NullHandler to suppress all logs when not debugging
             # This prevents unwanted log files (like reactor.log) and console output
-            logging.basicConfig(level=logging.CRITICAL, handlers=[logging.NullHandler()])
+            logging.basicConfig(
+                level=logging.CRITICAL, handlers=[logging.NullHandler()]
+            )
         self.logger = logging.getLogger(__name__)
 
     def action_request_quit(self) -> None:
@@ -101,12 +101,15 @@ class ShellAgentTUI(App):
             self.exit()
         else:
             self.last_quit_time = current_time
-            self.notify("Press Ctrl+C again to quit", title="Quit", severity="information")
+            self.notify(
+                "Press Ctrl+C again to quit", title="Quit", severity="information"
+            )
 
     def copy_to_clipboard(self, text: str) -> None:
         """Override clipboard copy to use pyperclip"""
         try:
             import pyperclip
+
             pyperclip.copy(text)
             self.logger.info("Copied to clipboard via pyperclip")
         except Exception as e:
@@ -146,18 +149,20 @@ class ShellAgentTUI(App):
     def on_mount(self) -> None:
         """Initialize"""
         self.logger.info("TUI Mounted")
-        
+
         # Register callback for real-time agent streaming
         from src.agents.manager import AgentManager
+
         manager = AgentManager()
         manager.set_tui_callback(self.on_agent_message)
-        
+
         # Register callback for main thread streaming
         self.bridge.set_message_callback(self.on_agent_message)
-        
+
         # Fresh Session: Clear Todo State
         try:
             from src.tools.todo_tools import reset_todos
+
             reset_todos()
             self.logger.info("Cleared session todos")
         except Exception as e:
@@ -165,14 +170,13 @@ class ShellAgentTUI(App):
 
         # Clear Live Log
         import tempfile
+
         live_log = Path(tempfile.gettempdir()) / "reactor_live_output.log"
         if live_log.exists():
             try:
                 live_log.unlink()
             except:
                 pass
-
-
 
     def action_toggle_sidebar(self) -> None:
         """Show/Hide Sidebar"""
@@ -292,7 +296,7 @@ class ShellAgentTUI(App):
             if agent_response.startswith("MODAL:"):
                 await self._handle_modal_command(agent_response, log_viewer)
                 return
-            
+
             # Bridge handled it - display the response
             log_viewer.add_log(agent_response, "info")
             return
@@ -353,34 +357,41 @@ class ShellAgentTUI(App):
                 f"⚠️ Unknown command: {command}. Type /help for available commands.",
                 "warning",
             )
-    
+
     async def _handle_modal_command(self, modal_command: str, log_viewer) -> None:
         """Handle modal-triggering commands"""
-        from src.tui.screens.agent_editor_modal import AgentEditorModal, AgentDetailModal
-        
+        from src.tui.screens.agent_editor_modal import (
+            AgentEditorModal,
+            AgentDetailModal,
+        )
+
         if modal_command == "MODAL:new-agent":
             # Open agent creation modal
             result = await self.push_screen_wait(AgentEditorModal())
             if result:
                 log_viewer.add_log(
                     f"✅ Agent '{result['name']}' {result['action']} successfully\nFile: `{result['file']}`",
-                    "info"
+                    "info",
                 )
-        
+
         elif modal_command.startswith("MODAL:edit-agent:"):
             agent_name = modal_command.split(":", 2)[2]
             # Open agent editor in edit mode
-            result = await self.push_screen_wait(AgentEditorModal(agent_name=agent_name, edit_mode=True))
+            result = await self.push_screen_wait(
+                AgentEditorModal(agent_name=agent_name, edit_mode=True)
+            )
             if result:
                 log_viewer.add_log(
                     f"✅ Agent '{result['name']}' {result['action']} successfully",
-                    "info"
+                    "info",
                 )
-        
+
         elif modal_command.startswith("MODAL:view-agent:"):
             agent_name = modal_command.split(":", 2)[2]
             # Open agent detail modal
-            result = await self.push_screen_wait(AgentDetailModal(agent_name=agent_name))
+            result = await self.push_screen_wait(
+                AgentDetailModal(agent_name=agent_name)
+            )
             if result and result.get("action") == "edit":
                 # User clicked Edit button - open editor
                 edit_result = await self.push_screen_wait(
@@ -389,7 +400,7 @@ class ShellAgentTUI(App):
                 if edit_result:
                     log_viewer.add_log(
                         f"✅ Agent '{edit_result['name']}' {edit_result['action']} successfully",
-                        "info"
+                        "info",
                     )
 
     @on(DirectoryTree.FileSelected)
@@ -434,7 +445,7 @@ class ShellAgentTUI(App):
             # Show in CodeViewer (Disabled)
             # code_viewer = self.query_one("#code-viewer")
             # code_viewer.show_file(event.path.name, content, language)
-            
+
             # Log action
             self.logger.info(f"File selected: {event.path.name} (CodeViewer disabled)")
             self.query_one(AgentDashboard).query_one("#log-viewer").add_log(
@@ -478,7 +489,7 @@ class ShellAgentTUI(App):
 
         # Reset UI elements for new run
         self.execution_results = []
-        
+
         # Prepare Live Execution Panel
         live_panel = self.query_one(LiveExecutionPanel)
         live_panel.clear()
@@ -501,6 +512,7 @@ class ShellAgentTUI(App):
         else:
             # Send to sub-agent via AgentManager
             from src.tools.agent_tools import get_agent_manager
+
             manager = get_agent_manager()
             self.agent_worker = self.run_worker(
                 manager.send_message(self.current_agent_id, command), exclusive=True
@@ -511,11 +523,11 @@ class ShellAgentTUI(App):
         # Only update if we're currently viewing this agent
         if agent_id != self.current_agent_id:
             return
-        
+
         try:
             dashboard = self.query_one(AgentDashboard)
             log_viewer = dashboard.query_one("#log-viewer")
-            
+
             # Handle message events (thinking/agent nodes)
             if event_type in ["thinking", "agent"]:
                 self.query_one(StatusBar).agent_state = "thinking"
@@ -523,13 +535,13 @@ class ShellAgentTUI(App):
                 log_type = "thought" if event_type == "thinking" else "agent"
                 if content and content.strip():
                     log_viewer.add_log(content, log_type)
-            
+
             # Handle tool_call events
             elif event_type == "tool_call":
                 self.query_one(StatusBar).agent_state = "executing"
                 tool_name = data["tool_name"]
                 args = data["args"]
-                
+
                 if tool_name == "execute_shell_command":
                     cmd = args.get("command", "unknown")
                     log_viewer.add_log(f"🛠️ Executing: `{cmd}`", "info")
@@ -538,23 +550,29 @@ class ShellAgentTUI(App):
                     except Exception as e:
                         self.logger.error(f"Failed to start live monitoring: {e}")
                 elif tool_name in ["write_file", "modify_file", "read_file_content"]:
-                    fpath = args.get("target_file") or args.get("file_path") or "unknown"
+                    fpath = (
+                        args.get("target_file") or args.get("file_path") or "unknown"
+                    )
                     basename = fpath.split("/")[-1] if fpath else "unknown"
                     log_viewer.add_log(f"🛠️ File Op ({tool_name}): `{basename}`", "info")
                 else:
                     log_viewer.add_log(f"🛠️ Using tool: {tool_name}", "info")
-            
+
             # Handle tool_result events
             elif event_type == "tool_result":
                 tool_name = data["tool_name"]
                 result = data["result"]
-                
+
                 # Check for generic error in result (common pattern in tool implementations)
                 is_error = isinstance(result, dict) and ("error" in result)
                 if is_error:
-                     error_msg = result.get("error", "Unknown error")
-                     if tool_name != "execute_shell_command": # Shell command handles errors differently (stderr)
-                        log_viewer.add_log(f"❌ Tool '{tool_name}' failed: {error_msg}", "error")
+                    error_msg = result.get("error", "Unknown error")
+                    if (
+                        tool_name != "execute_shell_command"
+                    ):  # Shell command handles errors differently (stderr)
+                        log_viewer.add_log(
+                            f"❌ Tool '{tool_name}' failed: {error_msg}", "error"
+                        )
 
                 if tool_name == "execute_shell_command" and isinstance(result, dict):
                     exec_result = ExecutionResult(
@@ -563,9 +581,9 @@ class ShellAgentTUI(App):
                         stdout=str(result.get("stdout", "")),
                         stderr=str(result.get("stderr", "")),
                         exit_code=result.get("exit_code", 0),
-                        duration_ms=result.get("duration_ms", 0.0)
+                        duration_ms=result.get("duration_ms", 0.0),
                     )
-                    
+
                     try:
                         live_panel = self.query_one(LiveExecutionPanel)
                         live_panel.set_content(exec_result)
@@ -573,15 +591,21 @@ class ShellAgentTUI(App):
                         live_panel.styles.display = "block"
                     except Exception as e:
                         self.logger.error(f"Failed to update LiveExecutionPanel: {e}")
-                    
+
                     try:
                         self.execution_results.append(exec_result)
                     except Exception as e:
                         self.logger.error(f"Failed to update results: {e}")
-                
-                elif tool_name in ["create_todo", "complete_todo", "update_todo", "list_todos"]:
+
+                elif tool_name in [
+                    "create_todo",
+                    "complete_todo",
+                    "update_todo",
+                    "list_todos",
+                ]:
                     try:
                         from src.tools.todo_tools import get_todos_for_ui
+
                         todos = get_todos_for_ui()
                         self.query_one(TODOPanel).update_todos(todos)
                         if not is_error:
@@ -595,16 +619,19 @@ class ShellAgentTUI(App):
                     basename = path.split("/")[-1] if path else "unknown"
                     lines = result.get("lines_written", "?")
                     op = result.get("operation", "wrote")
-                    
+
                     diff = result.get("diff", {})
                     added = diff.get("added", 0)
                     removed = diff.get("removed", 0)
                     diff_str = ""
                     if added > 0 or removed > 0:
                         diff_str = f" (+{added} -{removed})"
-                    
-                    log_viewer.add_log(f"📝 {op.capitalize()}: {basename} ({lines} lines written){diff_str}", "info")
-                
+
+                    log_viewer.add_log(
+                        f"📝 {op.capitalize()}: {basename} ({lines} lines written){diff_str}",
+                        "info",
+                    )
+
                 elif tool_name == "modify_file" and not is_error:
                     path = result.get("file_path", "unknown")
                     basename = path.split("/")[-1] if path else "unknown"
@@ -612,29 +639,37 @@ class ShellAgentTUI(App):
                     diff = result.get("diff", {})
                     added = diff.get("added", 0)
                     removed = diff.get("removed", 0)
-                    
+
                     diff_str = ""
                     if added > 0 or removed > 0:
                         diff_str = f" (+{added} -{removed})"
-                        
-                    log_viewer.add_log(f"✏️ Modified: {basename} ({replacements} changes){diff_str}", "info")
 
-                elif (tool_name == "edit_file" or tool_name == "apply_multiple_edits") and not is_error:
+                    log_viewer.add_log(
+                        f"✏️ Modified: {basename} ({replacements} changes){diff_str}",
+                        "info",
+                    )
+
+                elif (
+                    tool_name == "edit_file" or tool_name == "apply_multiple_edits"
+                ) and not is_error:
                     # Added legacy check just in case
                     path = result.get("file_path", "unknown")
                     basename = path.split("/")[-1] if path else "unknown"
                     successful = result.get("successful_edits", 0)
                     total = result.get("total_edits", 0)
-                    
+
                     diff = result.get("diff", {})
                     added = diff.get("added", 0)
                     removed = diff.get("removed", 0)
-                    
+
                     diff_str = ""
                     if added > 0 or removed > 0:
                         diff_str = f" (+{added} -{removed})"
-                        
-                    log_viewer.add_log(f"🔨 Applied edits: {basename} ({successful}/{total} success){diff_str}", "info")
+
+                    log_viewer.add_log(
+                        f"🔨 Applied edits: {basename} ({successful}/{total} success){diff_str}",
+                        "info",
+                    )
 
                 elif tool_name == "read_file_content" and not is_error:
                     path = result.get("file_path", "unknown")
@@ -642,21 +677,39 @@ class ShellAgentTUI(App):
                     lines = result.get("lines_returned", 0)
                     total = result.get("total_lines", 0)
                     if lines < total:
-                         log_viewer.add_log(f"📄 Read {lines}/{total} lines from {basename}", "info")
+                        log_viewer.add_log(
+                            f"📄 Read {lines}/{total} lines from {basename}", "info"
+                        )
                     else:
-                         log_viewer.add_log(f"📄 Read {lines} lines from {basename}", "info")
-                
-                elif not is_error and tool_name not in ["execute_shell_command", "create_todo", "complete_todo", "update_todo", "list_todos", "write_file", "modify_file", "apply_multiple_edits", "read_file_content"]:
-                     # Generic success for other tools
-                     log_viewer.add_log(f"✅ Tool '{tool_name}' completed", "info")
-                
+                        log_viewer.add_log(
+                            f"📄 Read {lines} lines from {basename}", "info"
+                        )
+
+                elif not is_error and tool_name not in [
+                    "execute_shell_command",
+                    "create_todo",
+                    "complete_todo",
+                    "update_todo",
+                    "list_todos",
+                    "write_file",
+                    "modify_file",
+                    "apply_multiple_edits",
+                    "read_file_content",
+                ]:
+                    # Generic success for other tools
+                    log_viewer.add_log(f"✅ Tool '{tool_name}' completed", "info")
+
                 # After any tool result, if the agent is not yet complete, go back to thinking
-                if self.query_one(StatusBar).agent_state not in ["complete", "error", "idle"]:
+                if self.query_one(StatusBar).agent_state not in [
+                    "complete",
+                    "error",
+                    "idle",
+                ]:
                     self.query_one(StatusBar).agent_state = "thinking"
-        
+
         except Exception as e:
             self.logger.error(f"Error handling agent event: {e}")
-    
+
     async def on_active_agents_agent_selected(
         self, event: ActiveAgents.AgentSelected
     ) -> None:
@@ -664,9 +717,9 @@ class ShellAgentTUI(App):
         agent_id = event.agent_id
         self.current_agent_id = agent_id  # Track which agent we're viewing
         dashboard = self.query_one(AgentDashboard)
-        
+
         self.logger.info(f"Switching view to agent thread: {agent_id}")
-        
+
         if agent_id == "main":
             # Load main thread
             if hasattr(self.bridge, "state") and "messages" in self.bridge.state:
@@ -675,6 +728,7 @@ class ShellAgentTUI(App):
         else:
             # Load parallel agent thread
             from src.agents.manager import AgentManager
+
             manager = AgentManager()
             history = await manager.get_agent_history(agent_id)
             if history:
@@ -683,7 +737,9 @@ class ShellAgentTUI(App):
                 agent = manager.get_agent(agent_id)
                 dashboard.query_one(StateIndicator).title = f"Agent: {agent.agent_name}"
             else:
-                 dashboard.query_one("#log-viewer").add_log("⚠️ Unable to load agent history", "warning")
+                dashboard.query_one("#log-viewer").add_log(
+                    "⚠️ Unable to load agent history", "warning"
+                )
 
     def on_directory_tree_file_selected(self, event: FileExplorer.FileSelected) -> None:
         """Handle file selection from sidebar"""
@@ -776,8 +832,6 @@ class ShellAgentTUI(App):
         dashboard.query_one(StateIndicator).state = "error"
         dashboard.query_one("#log-viewer").add_log(f"Error: {error}", "error")
         self.query_one(LiveExecutionPanel).remove_class("-visible")
-
-
 
 
 def run_tui(debug_mode: bool = False):

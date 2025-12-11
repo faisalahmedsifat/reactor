@@ -30,8 +30,12 @@ class CodeViewer(VerticalScroll):
 
     def show_file(self, filepath: str, content: str, language: str = "python"):
         """Display file content"""
-        self.current_content.clear() 
-        self.current_content[filepath] = {"type": "code", "content": content, "language": language}
+        self.current_content.clear()
+        self.current_content[filepath] = {
+            "type": "code",
+            "content": content,
+            "language": language,
+        }
         self.log(f"CodeViewer showing file: {filepath} ({len(content)} bytes)")
         self.update_display()
 
@@ -47,12 +51,12 @@ class CodeViewer(VerticalScroll):
     def update_display(self):
         """Update the display"""
         display = self.query_one("#code-display", Static)
-        
+
         if not self.current_content:
             display.update("No files loaded")
             display.add_class("diff-empty")
             return
-        
+
         display.remove_class("diff-empty")
 
         # Render the first/only item
@@ -60,7 +64,7 @@ class CodeViewer(VerticalScroll):
         # If we have multiple (diffs?), we might need to change this logic or just show the last one.
         # For now, let's just pick the last one added.
         filepath, data = list(self.current_content.items())[-1]
-            
+
         if data["type"] == "code":
             panel = Panel(
                 Syntax(
@@ -68,13 +72,13 @@ class CodeViewer(VerticalScroll):
                     data["language"],
                     theme="monokai",
                     line_numbers=True,
-                    word_wrap=True, # Ensure long lines don't break layout
+                    word_wrap=True,  # Ensure long lines don't break layout
                 ),
                 title=f"[bold green]{filepath}[/]",
                 border_style="green",
             )
             display.update(panel)
-            
+
         elif data["type"] == "diff":
             # Create unified diff
             old_lines = data["old"].splitlines(keepends=True)
@@ -95,7 +99,7 @@ class CodeViewer(VerticalScroll):
                 border_style="cyan",
             )
             display.update(panel)
-        
+
         # Force refresh to be safe, though update() should trigger it
         self.refresh()
 

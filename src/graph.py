@@ -11,7 +11,14 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
 
 from src.state import ShellAgentState
-from src.tools import shell_tools, file_tools, web_tools, todo_tools, grep_and_log_tools, agent_tools
+from src.tools import (
+    shell_tools,
+    file_tools,
+    web_tools,
+    todo_tools,
+    grep_and_log_tools,
+    agent_tools,
+)
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 import os
 
@@ -20,9 +27,9 @@ from src.nodes.thinking_nodes import thinking_node
 from src.nodes.agent_nodes import agent_node
 
 
-def create_simple_shell_agent(exclude_agent_tools: bool = False):
+def create_shell_agent(exclude_agent_tools: bool = False):
     """Build simplified LangGraph similar to Claude Code
-    
+
     Args:
         exclude_agent_tools: If True, excludes agent management tools (spawn_agent, etc.).
                             Set to True for sub-agents to prevent recursive spawning.
@@ -55,7 +62,7 @@ def create_simple_shell_agent(exclude_agent_tools: bool = False):
         grep_and_log_tools.filter_command_output,
         grep_and_log_tools.analyze_error_logs,
     ]
-    
+
     # Agent management tools - only for main agent, not sub-agents
     agent_management_tools = [
         agent_tools.spawn_agent,
@@ -64,7 +71,7 @@ def create_simple_shell_agent(exclude_agent_tools: bool = False):
         agent_tools.list_running_agents,
         agent_tools.stop_agent,
     ]
-    
+
     # Build final tool list based on context
     if exclude_agent_tools:
         all_tools = base_tools  # Sub-agents: no delegation capability
@@ -100,36 +107,36 @@ def create_simple_shell_agent(exclude_agent_tools: bool = False):
     checkpointer = MemorySaver()
     compiled = workflow.compile(checkpointer=checkpointer)
 
-
     return compiled
 
 
 # ============= NODE FUNCTIONS =============
 
 
-
-
-
 def should_continue_after_tools(state: ShellAgentState) -> Literal["thinking", "end"]:
     """
     Determine routing after tools execute.
-    
+
     CRITICAL: If spawn_agent was just called, END immediately without thinking.
     This prevents the infinite analysis loop.
     """
     messages = state["messages"]
-    
+
     # Check the last few messages for spawn_agent tool calls
     for msg in reversed(messages[-5:]):  # Check last 5 messages
         if hasattr(msg, "tool_calls") and msg.tool_calls:
             for tool_call in msg.tool_calls:
                 # Tool calls can be dicts or objects
-                tool_name = tool_call.get("name") if isinstance(tool_call, dict) else getattr(tool_call, "name", None)
+                tool_name = (
+                    tool_call.get("name")
+                    if isinstance(tool_call, dict)
+                    else getattr(tool_call, "name", None)
+                )
                 if tool_name == "spawn_agent":
                     # spawn_agent was just called - terminate immediately
                     print("[DEBUG] Detected spawn_agent in history, ending immediately")
                     return "end"
-    
+
     # Default: continue to thinking for analysis
     return "thinking"
 
@@ -145,7 +152,7 @@ def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
 
     # If the agent explicitly indicates completion, end
     content = getattr(last_message, "content", "") or ""
-    
+
     # Handle list content (common with some providers or multimodal)
     if isinstance(content, list):
         text_content = ""
@@ -157,7 +164,7 @@ def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
             elif hasattr(block, "text"):
                 text_content += block.text
         content = text_content
-    
+
     # If the agent returned content (text) without tools, we consider the turn complete
     # This avoids infinite loops like "Hi" -> "Thinking" -> "Hi"
     if content and str(content).strip():
@@ -172,14 +179,14 @@ def should_continue(state: ShellAgentState) -> Literal["tools", "end"]:
 
 
 async def run_simple_agent(
-    user_request: str, 
+    user_request: str,
     thread_id: str = "default",
     agent_name: str = None,
-    skill_names: list = None
+    skill_names: list = None,
 ):
     """
     Run simplified agent with optional agent and skills.
-    
+
     Args:
         user_request: User's request
         thread_id: Thread ID for conversation tracking
@@ -187,7 +194,7 @@ async def run_simple_agent(
         skill_names: Optional list of skill names
     """
 
-    graph = create_simple_shell_agent()
+    graph = create_shell_agent()
 
     initial_state = {
         "messages": [HumanMessage(content=user_request)],

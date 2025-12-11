@@ -8,9 +8,6 @@ from pathlib import Path
 import time
 
 
-
-
-
 # Tool 3: Validate Safety
 @tool
 def validate_command_safety(command: str) -> Dict[str, Any]:
@@ -68,8 +65,9 @@ async def execute_shell_command(
     Set dry_run=True to simulate without actually executing.
     """
     start = time.time()
-    
+
     import tempfile
+
     # Live output log file - Use absolute path in temp dir
     live_log_path = Path(tempfile.gettempdir()) / "reactor_live_output.log"
 
@@ -90,11 +88,13 @@ async def execute_shell_command(
 
         # Append to live log instead of truncate
         with open(live_log_path, "a", encoding="utf-8") as f:
-            f.write(f"\n\n{'='*40}\n--- Executing: {command} ---\n--- Directory: {cwd} ---\n{'='*40}\n")
+            f.write(
+                f"\n\n{'='*40}\n--- Executing: {command} ---\n--- Directory: {cwd} ---\n{'='*40}\n"
+            )
 
         # Create subprocess asynchronously
         process = None
-        
+
         if system == "windows":
             # Windows: use powershell
             cmd_list = ["powershell.exe", "-NoProfile", "-Command", command]
@@ -123,7 +123,7 @@ async def execute_shell_command(
                 line = await stream.readline()
                 if not line:
                     break
-                decoded = line.decode(errors='replace')
+                decoded = line.decode(errors="replace")
                 acc.append(decoded)
                 # Write to live log
                 try:
@@ -136,7 +136,7 @@ async def execute_shell_command(
         # Concurrent reading of stdout and stderr
         await asyncio.gather(
             read_stream(process.stdout, stdout_acc),
-            read_stream(process.stderr, stderr_acc)
+            read_stream(process.stderr, stderr_acc),
         )
 
         try:
@@ -146,7 +146,7 @@ async def execute_shell_command(
                 process.terminate()
                 await process.wait()
             except:
-                pass # Already dead
+                pass  # Already dead
             raise TimeoutError(f"Command timed out after {timeout}s")
 
         stdout_str = "".join(stdout_acc)
@@ -221,10 +221,10 @@ def get_system_info() -> Dict[str, str]:
         # Check if .git exists in current or parent dirs
         # Simple check: call git branch --show-current
         proc = subprocess.run(
-            ["git", "branch", "--show-current"], 
-            capture_output=True, 
-            text=True, 
-            timeout=1
+            ["git", "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            timeout=1,
         )
         if proc.returncode == 0:
             branch = proc.stdout.strip()

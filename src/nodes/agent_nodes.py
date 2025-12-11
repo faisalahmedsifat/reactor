@@ -20,7 +20,7 @@ import os
 async def agent_node(state: ShellAgentState) -> Dict:
     """
     Main agent node - uses LLM with tools.
-    
+
     This node:
     1. Binds all available tools to the LLM
     2. Constructs the context-aware system prompt
@@ -73,12 +73,12 @@ async def agent_node(state: ShellAgentState) -> Dict:
         shell_type=system_info["shell_type"],
         working_directory=system_info["working_directory"],
     )
-    
+
     # Compose with agent and skills if specified
     system_prompt_content = compose_prompt(
         base_system_prompt,
         agent_name=state.get("active_agent"),
-        skill_names=state.get("active_skills", [])
+        skill_names=state.get("active_skills", []),
     )
 
     system_message = SystemMessage(content=system_prompt_content)
@@ -92,7 +92,7 @@ async def agent_node(state: ShellAgentState) -> Dict:
 
     # Prepare state updates
     updates = {"messages": [response]}
-    
+
     # If we fetched system_info for the first time, save it to state
     if not state.get("system_info") and system_info:
         updates["system_info"] = system_info

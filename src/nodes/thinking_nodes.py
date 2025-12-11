@@ -38,12 +38,12 @@ async def thinking_node(state: ShellAgentState) -> ShellAgentState:
         git_info=system_info.get("git_info", "Unknown"),
         python_info=system_info.get("python_version", "Unknown"),
     )
-    
+
     # Compose prompt with agent and skills if specified
     prompt = compose_prompt(
         base_prompt,
         agent_name=state.get("active_agent"),
-        skill_names=state.get("active_skills", [])
+        skill_names=state.get("active_skills", []),
     )
 
     # Set explicit Identity/Authority based on execution mode

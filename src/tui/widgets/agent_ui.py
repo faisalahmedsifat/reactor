@@ -1,6 +1,15 @@
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical, Horizontal, VerticalScroll
-from textual.widgets import Static, RichLog, Label, Input, Tree, Markdown, Button, TextArea
+from textual.widgets import (
+    Static,
+    RichLog,
+    Label,
+    Input,
+    Tree,
+    Markdown,
+    Button,
+    TextArea,
+)
 from textual.reactive import reactive
 from textual.message import Message
 from textual.binding import Binding
@@ -19,7 +28,7 @@ from src.tui.widgets.suggestions_list import SuggestionsList
 
 class WelcomeWidget(Static):
     """Welcome screen with branding and prompts"""
-    
+
     def compose(self) -> ComposeResult:
         branding = """
 [bold cyan]
@@ -33,16 +42,17 @@ class WelcomeWidget(Static):
 """
         yield Static(branding, classes="welcome-branding")
         yield Label("Try these prompts to get started:", classes="welcome-subtitle")
-        
+
         prompts = [
             "Analyze this repository structure",
             "Refactor src/tui/app.tcss to be more modern",
             "Create a new agent for database management",
             "Explain how the detailed execution plan works",
         ]
-        
+
         for prompt in prompts:
             yield Static(f"⚡ [bold]{prompt}[/]", classes="welcome-prompt")
+
 
 class LogViewer(VerticalScroll):
     """Scrollable log viewer with collapsible thoughts support"""
@@ -69,7 +79,7 @@ class LogViewer(VerticalScroll):
         """Add an activity/tool call to the current execution session"""
         if not message.strip():
             return
-            
+
         self.remove_welcome_message()
 
         self.current_activity.append(message)
@@ -205,28 +215,28 @@ class LogViewer(VerticalScroll):
         # Create Panel and mount as Static widget
         # Determine specific class for styling
         msg_class = f"log-{level}"
-        container_classes = f"message-container {msg_class}" 
+        container_classes = f"message-container {msg_class}"
         is_chat_message = False
 
         if level == "info" and title == "[bold]User[/]":
             msg_class = "log-user"
             container_classes = f"message-container log-user"
             is_chat_message = True
-        elif title == "[bold]Agent[/]": 
+        elif title == "[bold]Agent[/]":
             msg_class = "log-agent"
             container_classes = f"message-container log-agent"
             is_chat_message = True
         elif level == "agent":
-             msg_class = "log-agent"
-             container_classes = f"message-container log-agent"
-             is_chat_message = True
-        
+            msg_class = "log-agent"
+            container_classes = f"message-container log-agent"
+            is_chat_message = True
+
         # We perform styling on the Container now (borders, backgrounds)
         # So the inner static widget (panel_widget) should generally be transparent/unbordered
         # unless it's a special panel type.
-        
+
         panel_widget = Static(classes="message-content")
-        
+
         # For Chat Messages (User/Agent), we DROP the rich.Panel because the CSS provides the "bubble" look.
         # For other types (Error, Plan, etc.) we keep the Panel for its specific visual formatting.
         if is_chat_message:
@@ -250,7 +260,7 @@ class LogViewer(VerticalScroll):
         copy_btn = Button("COPY", variant="default", classes="copy-btn")
         copy_btn.tooltip = "Copy to clipboard"
         copy_btn.copy_content = content
-        
+
         # Create Container for message and copy button
         # The container uses the `container_classes` calculated above
         container = Container(panel_widget, copy_btn, classes=container_classes)
@@ -264,16 +274,14 @@ class LogViewer(VerticalScroll):
             try:
                 # Try Textual's clipboard API
                 self.app.copy_to_clipboard(event.button.copy_content)
-                self.notify(
-                    "Copied!", title="Success", severity="information"
-                )
+                self.notify("Copied!", title="Success", severity="information")
             except Exception:
                 pass
 
 
 class LiveExecutionPanel(Vertical):
     """Panel to show live output of running commands"""
-    
+
     # We don't use reactive output directly anymore, we update the TextArea
     _poll_timer: Optional[object] = None
 
@@ -281,11 +289,11 @@ class LiveExecutionPanel(Vertical):
         yield Label("Live Output", classes="panel-header")
         # TextArea supports selection and scrolling natively
         yield TextArea(
-            "", 
-            language="text", 
-            read_only=True, 
+            "",
+            language="text",
+            read_only=True,
             id="live-output-text",
-            classes="cyber-textarea"
+            classes="cyber-textarea",
         )
         with Horizontal(classes="panel-footer"):
             yield Button("📋 Copy Log", id="copy-live-btn", variant="default")
@@ -300,7 +308,7 @@ class LiveExecutionPanel(Vertical):
         text_area.text = f"Executing: {command}\nWaiting for output..."
         self.remove_class("-hidden")
         self.styles.display = "block"
-        
+
         # Start timer to read log file
         self.set_interval(0.2, self._poll_log)
 
@@ -310,9 +318,11 @@ class LiveExecutionPanel(Vertical):
     def _poll_log(self) -> None:
         """Read the live log file and update display."""
         import logging
+
         logger = logging.getLogger(__name__)
         try:
             import tempfile
+
             log_path = Path(tempfile.gettempdir()) / "reactor_live_output.log"
             if log_path.exists():
                 content = log_path.read_text(encoding="utf-8")
@@ -321,9 +331,9 @@ class LiveExecutionPanel(Vertical):
                 if len(content) > 50000:
                     content = "... [truncated] ...\n" + content[-50000:]
                     truncated = True
-                
+
                 text_area = self.query_one("#live-output-text", TextArea)
-                
+
                 # Check if content actually changed to avoid cursor reset
                 if text_area.text != content:
                     # Save cursor? TextArea might reset cursor on setting text.
@@ -341,7 +351,7 @@ class LiveExecutionPanel(Vertical):
     def set_content(self, result: ExecutionResult) -> None:
         """Update panel content from an ExecutionResult."""
         text_area = self.query_one("#live-output-text", TextArea)
-        
+
         content = (
             f"CMD: {result.command}\n"
             f"EXIT CODE: {result.exit_code}\n\n"
@@ -376,7 +386,7 @@ class StateIndicator(Static):
         "idle": ("Idle", "dim"),
         "compacting": ("Compacting...", "magenta"),
     }
-    
+
     # Frames for the spinner animation
     SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
@@ -396,11 +406,9 @@ class StateIndicator(Static):
         # Simplified render returning a string/Renderable instead of a Panel
         # allowing CSS to control the container style (badge look)
         if self.state == "idle":
-             return "Idle"
+            return "Idle"
 
-        text, color = self.DISPLAY_STATES.get(
-            self.state, ("Processing...", "white")
-        )
+        text, color = self.DISPLAY_STATES.get(self.state, ("Processing...", "white"))
 
         # Only show spinner if state is active
         if self.state in ["thinking", "executing", "compacting"]:
@@ -510,6 +518,7 @@ class ChatInput(TextArea):
 
     class Submitted(Message):
         """Posted when user presses Enter without Shift"""
+
         def __init__(self, value: str):
             self.value = value
             super().__init__()
@@ -529,22 +538,25 @@ class ChatInput(TextArea):
 
     def on_text_area_changed(self, event) -> None:
         """Handle text changes to show inline suggestions"""
-        from src.tui.helpers.fuzzy_search import get_command_suggestions, get_file_suggestions
-        
+        from src.tui.helpers.fuzzy_search import (
+            get_command_suggestions,
+            get_file_suggestions,
+        )
+
         text = self.text
         if not text:
             self._hide_suggestions()
             return
-        
+
         # Get current cursor position
         cursor_row, cursor_col = self.cursor_location
         lines = text.split("\n")
         if cursor_row >= len(lines):
             return
-        
+
         current_line = lines[cursor_row]
         text_before_cursor = current_line[:cursor_col]
-        
+
         # Check if we should show autocomplete
         if text_before_cursor.startswith("/"):
             # Command autocomplete
@@ -557,7 +569,7 @@ class ChatInput(TextArea):
         elif "@" in text_before_cursor:
             # File autocomplete
             last_at = text_before_cursor.rfind("@")
-            query = text_before_cursor[last_at+1:]
+            query = text_before_cursor[last_at + 1 :]
             suggestions = get_file_suggestions(query)
             if suggestions:
                 self._show_suggestions(suggestions, "file", last_at + 1)
@@ -565,13 +577,15 @@ class ChatInput(TextArea):
                 self._hide_suggestions()
         else:
             self._hide_suggestions()
-    
-    def _show_suggestions(self, suggestions: List[str], type: str, start_pos: int) -> None:
+
+    def _show_suggestions(
+        self, suggestions: List[str], type: str, start_pos: int
+    ) -> None:
         """Show suggestions in the suggestions list"""
         self.autocomplete_active = True
         self.autocomplete_type = type
         self.autocomplete_start_pos = start_pos
-        
+
         # Get parent container and update suggestions list
         try:
             dashboard = self.ancestors[0]  # AgentDashboard
@@ -579,7 +593,7 @@ class ChatInput(TextArea):
             suggestions_list.show_suggestions(suggestions)
         except Exception:
             pass
-    
+
     def _hide_suggestions(self) -> None:
         """Hide suggestions"""
         self.autocomplete_active = False
@@ -589,7 +603,7 @@ class ChatInput(TextArea):
             suggestions_list.hide()
         except Exception:
             pass
-    
+
     def action_suggestion_down(self) -> None:
         """Select next suggestion"""
         if not self.autocomplete_active:
@@ -600,7 +614,7 @@ class ChatInput(TextArea):
             suggestions_list.select_next()
         except Exception:
             pass
-    
+
     def action_suggestion_up(self) -> None:
         """Select previous suggestion"""
         if not self.autocomplete_active:
@@ -620,15 +634,18 @@ class ChatInput(TextArea):
                 dashboard = self.ancestors[0]
                 suggestions_list = dashboard.query_one(SuggestionsList)
                 selected = suggestions_list.get_selected()
-                
+
                 if selected:
                     # Auto-complete if only one suggestion OR user has selected one
-                    if len(suggestions_list.suggestions) == 1 or suggestions_list.selected_index >= 0:
+                    if (
+                        len(suggestions_list.suggestions) == 1
+                        or suggestions_list.selected_index >= 0
+                    ):
                         self._accept_suggestion(selected)
                         return
             except Exception:
                 pass
-        
+
         # Otherwise submit normally
         value = self.text.strip()
         if value:
@@ -636,33 +653,37 @@ class ChatInput(TextArea):
             self.text = ""
             self.cursor_location = (0, 0)
             self._hide_suggestions()
-    
+
     def _accept_suggestion(self, suggestion: str) -> None:
         """Accept and insert the selected suggestion"""
         text = self.text
         cursor_row, cursor_col = self.cursor_location
         lines = text.split("\n")
-        
+
         if cursor_row >= len(lines):
             return
-        
+
         current_line = lines[cursor_row]
-        
+
         # Replace from autocomplete_start_pos to cursor with suggestion
-        new_line = current_line[:self.autocomplete_start_pos] + suggestion + " " + current_line[cursor_col:]
+        new_line = (
+            current_line[: self.autocomplete_start_pos]
+            + suggestion
+            + " "
+            + current_line[cursor_col:]
+        )
         lines[cursor_row] = new_line
-        
+
         self.text = "\n".join(lines)
         new_cursor_pos = self.autocomplete_start_pos + len(suggestion) + 1
         self.cursor_location = (cursor_row, new_cursor_pos)
-        
+
         # Hide suggestions after accepting
         self._hide_suggestions()
-    
+
     def action_newline(self) -> None:
         """Insert newline"""
         self.insert("\n")
-
 
 
 class AgentDashboard(Container):
@@ -706,22 +727,22 @@ class AgentDashboard(Container):
     async def load_history(self, messages: List[Any]) -> None:
         """Clear and load history from message objects"""
         log_viewer = self.query_one("#log-viewer")
-        
+
         # Clear existing
         for child in log_viewer.query("*"):
             child.remove()
-        
+
         # Re-render messages
         for msg in messages:
             content = msg.content
             if not content:
                 continue
-                
+
             # Determine type/style
             msg_type = msg.type
             level = "info"
             is_thought = False
-            
+
             if msg_type == "human":
                 content = f"💬 You: {content}"
                 level = "info"
@@ -735,11 +756,10 @@ class AgentDashboard(Container):
                 # Tool outputs often long, maybe show as thought/activity
                 level = "info"
                 is_thought = True
-            
+
             # Rough heuristic for "thoughts" vs "responses"
             # If AI message starts with special tokens (formatting), handle in add_log
-            
-            log_viewer.add_log(str(content), level, is_thought=is_thought)
-            
-        log_viewer.add_log("🔄 Thread loaded", "info")
 
+            log_viewer.add_log(str(content), level, is_thought=is_thought)
+
+        log_viewer.add_log("🔄 Thread loaded", "info")
