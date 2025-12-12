@@ -4,13 +4,14 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-An intelligent, conversational shell automation agent powered by LLMs (Large Language Models) with a beautiful Textual TUI interface.
+An intelligent, conversational shell automation agent powered by LLMs (Large Language Models) with a beautiful Textual TUI interface and **automatic AST analysis**.
 
 ## 🌟 Overview
 
 ReACTOR is a **dual-mode AI assistant** that can both:
 1. **Analyze Projects** - Intelligently read and understand your codebase without executing commands
 2. **Execute Tasks** - Generate and run shell commands safely with human-in-the-loop approval
+3. **🔄 Automatic Code Analysis** - Built-in reactor system provides real-time AST validation and feedback
 
 The agent features a **conversational interface** that communicates its understanding and plans *before* taking action, not after.
 
@@ -19,6 +20,7 @@ The agent features a **conversational interface** that communicates its understa
 ### 🧠 Dual-Mode Intelligence
 - **Analytical Mode**: Reads files, analyzes project structure, provides intelligent summaries
 - **Execution Mode**: Generates shell commands, validates safety, executes with approval
+- **🔄 Reactor Integration**: Automatic AST analysis on every file operation
 
 ### 💬 Conversational Interface
 - **Upfront Communication**: Agent explains what it understood before acting
@@ -31,6 +33,51 @@ The agent features a **conversational interface** that communicates its understa
 - **Auto-approval**: Safe commands execute automatically (configurable)
 - **Configurable Retries**: Set max retry attempts per task
 - **Safety Validation**: Commands are analyzed for risk before execution
+
+### 🔄 Reactor System - "Simple Actions, Smart Reactions"
+ReACTOR includes an **automatic AST analysis layer** that provides intelligent feedback on all file operations:
+
+#### **For AI Agents:**
+- **Simple Operations Only**: Just read/write text files - no AST knowledge needed
+- **Automatic Validation**: Every file is automatically parsed and validated
+- **Smart Feedback**: Get syntax, import, and dependency analysis instantly
+- **Error Prevention**: Catch issues before they cause problems
+
+#### **Key Reactor Features:**
+- ✅ **Syntax Validation**: Real-time syntax checking with detailed error reporting
+- ✅ **Import Analysis**: Validates imports and detects missing modules
+- ✅ **Dependency Tracking**: Maps file dependencies and affected files
+- ✅ **Breaking Change Detection**: Identifies API changes that might break other code
+- ✅ **Auto-Fixes**: Automatically adds missing imports and fixes formatting
+- ✅ **Impact Assessment**: Analyzes how changes affect the broader codebase
+
+#### **Example Reactor Feedback:**
+```json
+{
+  "status": "success",
+  "validation": {
+    "syntax": "valid",
+    "imports": "valid"
+  },
+  "impact": {
+    "level": "minimal",
+    "affected_files": []
+  },
+  "auto_fixes": {
+    "applied": ["Added missing import: typing.Optional"],
+    "count": 1
+  },
+  "suggestions": [
+    "✓ Code looks good - no issues detected"
+  ]
+}
+```
+
+#### **Error Handling Examples:**
+- **Syntax Errors**: Reactor detects and blocks auto-fixes, returns detailed error messages
+- **Import Issues**: Automatically adds missing imports, removes unused ones
+- **Breaking Changes**: Identifies affected files and provides impact analysis
+- **Style Issues**: Applies formatting fixes and suggests improvements
 
 ### 🎨 Cyberpunk TUI
 - Beautiful 3-column layout with neon aesthetics
@@ -121,28 +168,57 @@ Ask the agent to do something:
 - ⚡ Execute commands (with approval for dangerous ones)
 - ✅ Stream progress as work completes
 
+### 🔄 Reactor-Enhanced File Operations
+
+When agents create or modify files, the reactor system automatically provides analysis:
+
+```bash
+# Agent creates file - reactor automatically analyzes
+reactor -p "Create a Python file with imports and a class"
+
+# Response includes reactor feedback:
+{
+  "file": "example.py",
+  "validation": {"syntax": "valid", "imports": "valid"},
+  "reactor_feedback": {
+    "auto_fixes": {"applied": ["Added missing import: typing.Optional"]},
+    "suggestions": ["✓ Code looks good - no issues detected"]
+  }
+}
+```
+
+**Reactor Features:**
+- ✅ **Automatic Syntax Validation** - Catches errors instantly
+- ✅ **Import Analysis** - Detects missing/unused imports
+- ✅ **Dependency Tracking** - Maps file relationships
+- ✅ **Breaking Change Detection** - Identifies API changes
+- ✅ **Auto-Fixes** - Adds missing imports, fixes formatting
+- ✅ **Smart Feedback** - Actionable suggestions for every issue
+
+### 🔄 Reactor System Integration
+
+The reactor subsystem can be configured via `reactor_config.yaml`:
+
 ## 🏗️ Architecture
 
 ### Workflow Overview
-
 ![ReACTOR Architecture](shell_agent_graph_simple.png)
 
 ### Key Components
-
 - **LangGraph Workflow**: simplified ReAct-style loop with specialized nodes
 - **Thinking Node**: Pure reasoning engine that analyzes state and plans next steps
 - **Agent Node**: Execution unit that selects tools or summarizes results
 - **Tool Node**: Handles safe execution of shell and file operations
 - **Textual TUI**: "Powerhouse" interface with real-time thought visibility
-- **LLM Integration**: Context-aware prompting with system state injection
+- **🔄 Reactor System**: Automatic AST analysis and validation layer
 
 ### Technology Stack
-
 - **LangChain & LangGraph**: Agent orchestration framework
 - **Textual**: Terminal User Interface framework
 - **Pydantic**: Data validation and models
 - **Poetry**: Dependency management
 - **Claude/OpenAI**: LLM providers
+- **AST Parsers**: Multi-language code analysis (Python, JavaScript, Java, Go, Rust, etc.)
 
 ## 📁 Project Structure
 
@@ -225,6 +301,16 @@ Message types:
 - [x] Execution mode toggle (UI)
 - [x] Cyberpunk TUI with proper layout
 - [x] Special message formatting for communication nodes
+- [x] 🔄 **Reactor system** with automatic AST analysis and validation
+- [x] **Smart error handling** with syntax, import, and dependency analysis
+- [x] **Auto-fixes** for missing imports and formatting issues
+- [x] **Breaking change detection** with impact assessment
+- [x] **Configurable feedback** with multiple verbosity levels
+- [x] 🔄 **Reactor system** with automatic AST analysis and validation
+- [x] **Smart error handling** with syntax, import, and dependency analysis
+- [x] **Auto-fixes** for missing imports and formatting issues
+- [x] **Breaking change detection** with impact assessment
+- [x] **Configurable feedback** with multiple verbosity levels
 
 ### 🚧 In Progress
 - [ ] Parallel execution implementation (infrastructure ready)
@@ -255,6 +341,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📞 Support
 
 For issues, questions, or suggestions, please open an issue on GitHub.
+
+## 📚 Documentation
+
+- **[Reactor System Guide](REACTOR_SYSTEM.md)** - Comprehensive documentation for the automatic AST analysis system
+- **[API Reference](REACTOR_SYSTEM.md#api-reference)** - Detailed API documentation for developers
+- **[Configuration Guide](REACTOR_SYSTEM.md#configuration)** - Complete configuration options
+- **[Error Handling](REACTOR_SYSTEM.md#error-handling)** - How reactor handles different types of issues
 
 ---
 

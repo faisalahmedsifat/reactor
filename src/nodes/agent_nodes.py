@@ -5,7 +5,7 @@ Agent node for the Simplified Reactive Graph.
 The 'Hands' of the operation - converts Brain Plans to Tool Calls.
 """
 
-from typing import Dict
+from typing import Dict, Any
 from langchain_core.messages import SystemMessage, HumanMessage
 from src.state import ShellAgentState
 from src.tools import (
@@ -20,7 +20,7 @@ from src.llm.client import get_llm_client
 from src.prompts import get_prompt, compose_prompt
 
 
-async def agent_node(state: ShellAgentState) -> Dict:
+async def agent_node(state: ShellAgentState) -> Dict[str, Any]:
     """
     Node: Execution step (The Hands).
 
@@ -64,7 +64,7 @@ async def agent_node(state: ShellAgentState) -> Dict:
     llm_with_tools = llm_client.bind_tools(all_tools)
 
     # 3. Context & Prompt
-    messages = state["messages"]
+    messages = state.get("messages", [])
     system_info = state.get("system_info")
     if not system_info:
         # Fallback safety
@@ -87,19 +87,55 @@ async def agent_node(state: ShellAgentState) -> Dict:
     # This is crucial: we tell the Agent EXACTLY what the Brain wants done right now.
     current_instruction = state.get("next_step", "Review history and proceed.")
     
+    # Handle special instructions
+    if current_instruction == "[STOP_AGENT]":
+        # Return a final message instead of trying to execute tools
+        from langchain_core.messages import AIMessage
+        updates: Dict[str, Any] = {
+            "messages": [AIMessage(content="Task completed successfully.")],
+            "next_step": "[STOP_AGENT]"
+        }
+        if not state.get("system_info"):
+            updates["system_info"] = system_info
+        return updates
+
     instruction_message = SystemMessage(
-        content=f"## IMMEDIATE INSTRUCTION\nThe Brain has analyzed the situation and ordered you to:\n>>> {current_instruction}\n\nExecute this EXACTLY. Do not deviate."
+        content=f"## IMMEDIATE INSTRUCTION\nThe Brain has analyzed the situation and ordered you to:\n>>> {current_instruction}\n\nExecute this EXACTLY. Do not deviate. If this is a summary/respond instruction, provide a text response. Otherwise, use tools."
     )
 
     # Construct the message stack
-    # System Prompt -> History -> Instruction Override
-    messages_for_llm = [SystemMessage(content=system_prompt_content)] + messages + [instruction_message]
+    # OPTIMIZATION: Context Pruning
+    # Instead of sending the full history (which can be huge), we only send:
+    # 1. System Prompt (with tool definitions)
+    # 2. The specific instruction (as a HumanMessage to ensure clarity)
+    # This drastically reduces input tokens for the Agent node.
+    
+    combined_system_content = f"{system_prompt_content}"
+    
+    # We treat the instruction as a fresh "Human" request to the Agent
+    # This ensures the LLM focuses ONLY on this task and isn't distracted by previous turns.
+    # Note: We do NOT include 'messages' from state here.
+    # We treat the instruction as a fresh "Human" request to the Agent
+    # This ensures the LLM focuses ONLY on this task and isn't distracted by previous turns.
+    # Note: We do NOT include 'messages' from state here.
+    
+    context_messages = [SystemMessage(content=combined_system_content)]
+    
+    # REFINEMENT: Include the last tool result if it exists.
+    # This prevents "Amnesia Loops" where the Agent validates a command, gets "Safe",
+    # but then forgets it validated and validates again because it's stateless.
+    from langchain_core.messages import ToolMessage
+    
+    if messages and isinstance(messages[-1], ToolMessage):
+        context_messages.append(messages[-1])
+        
+    context_messages.append(HumanMessage(content=f"Execute this instruction:\n\n{current_instruction}"))
     
     # 5. Invoke
-    response = await llm_with_tools.ainvoke(messages_for_llm)
+    response = await llm_with_tools.ainvoke(context_messages)
 
     # 6. Return Update
-    updates = {"messages": [response]}
+    updates: Dict[str, Any] = {"messages": [response]}
     if not state.get("system_info"):
         updates["system_info"] = system_info
 
