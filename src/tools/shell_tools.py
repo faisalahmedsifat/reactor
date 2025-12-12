@@ -315,3 +315,234 @@ def check_path_exists(path: str) -> Dict[str, Any]:
         "is_writable": os.access(p, os.W_OK),
         "path": str(p),
     }
+
+
+# --- Interactive Shell Session Manager ---
+
+class ShellSession:
+    def __init__(self, session_id: str, process, log_path: Path):
+        self.session_id = session_id
+        self.process = process
+        self.log_path = log_path
+        self.created_at = time.time()
+        self.buffer = []  # In-memory buffer of recent output
+        self.is_active = True
+
+class ShellSessionManager:
+    _instance = None
+    _sessions: Dict[str, ShellSession] = {}
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def create_session(self, session_id: str, process, log_path: Path):
+        self._sessions[session_id] = ShellSession(session_id, process, log_path)
+
+    def get_session(self, session_id: str) -> Optional[ShellSession]:
+        return self._sessions.get(session_id)
+
+    def remove_session(self, session_id: str):
+        if session_id in self._sessions:
+            del self._sessions[session_id]
+
+    def list_sessions(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": s.session_id,
+                "active": s.is_active,
+                "uptime": time.time() - s.created_at
+            }
+            for s in self._sessions.values()
+        ]
+
+# Tool 8: Run Interactive Command
+@tool
+async def run_interactive_command(
+    command: str, working_directory: str = ".", timeout: int = 300
+) -> Dict[str, Any]:
+    """
+    Start a persistent interactive shell command (bg process).
+    
+    Use this for commands that require user input or run for a long time (REPLs, servers).
+    Returns a session_id that you MUST use with `send_shell_input` and `terminate_shell_session`.
+    """
+    import uuid
+    import tempfile
+    
+    session_id = str(uuid.uuid4())[:8]
+    manager = ShellSessionManager.get_instance()
+    
+    cwd = str(Path(working_directory).expanduser())
+    live_log_path = Path(tempfile.gettempdir()) / f"reactor_session_{session_id}.log"
+    
+    # Initialize log
+    with open(live_log_path, "w", encoding="utf-8") as f:
+        f.write(f"--- Interactive Session {session_id} ---\nCommand: {command}\nCWD: {cwd}\n\n")
+
+    try:
+        # Prepare environment with TERM to encourage color output
+        import os
+        env = os.environ.copy()
+        env["TERM"] = "xterm-256color"
+        env["PS1"] = r"\u@\h:\w$ " # Force prompt if possible
+        
+        # Start subprocess with pipes
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+            env=env
+        )
+        
+        manager.create_session(session_id, process, live_log_path)
+        
+        # Start background reader tasks
+        asyncio.create_task(_stream_output(session_id, process.stdout, "stdout"))
+        asyncio.create_task(_stream_output(session_id, process.stderr, "stderr"))
+        
+        # Wait a bit to capture initial output
+        await asyncio.sleep(0.5)
+        
+        # Read what we have so far
+        initial_output = _read_session_log(live_log_path)
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "status": "running",
+            "initial_output": initial_output,
+            "log_file": str(live_log_path)
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+async def _stream_output(session_id: str, stream, stream_name: str):
+    """Background task to stream output to file and buffer"""
+    manager = ShellSessionManager.get_instance()
+    session = manager.get_session(session_id)
+    if not session:
+        return
+
+    while True:
+        line = await stream.readline()
+        if not line:
+            break
+            
+        decoded = line.decode(errors="replace")
+        
+        # Write to file
+        try:
+            with open(session.log_path, "a", encoding="utf-8") as f:
+                f.write(decoded)
+        except:
+            pass
+            
+        # Add to memory buffer (keep last 100 lines?)
+        # For now just strictly appending to file is safest for generic logs.
+
+    # Mark as inactive if stream ends (process likely died)
+    session.is_active = False
+
+def _read_session_log(path: Path, max_chars: int = 2000) -> str:
+    if not path.exists():
+        return ""
+    try:
+        content = path.read_text(encoding="utf-8")
+        if len(content) > max_chars:
+            return "...(truncated)...\n" + content[-max_chars:]
+        return content
+    except:
+        return ""
+
+# Tool 9: Send Shell Input
+@tool
+async def send_shell_input(session_id: str, input_text: str, wait_ms: int = 1000) -> Dict[str, Any]:
+    """
+    Send text input to a running interactive session (stdin).
+    Use this to answer prompts (y/n, names, passwords, etc.).
+    Add \\n at the end of input_text to simulate Enter key!
+    """
+    manager = ShellSessionManager.get_instance()
+    session = manager.get_session(session_id)
+    
+    if not session:
+        return {"error": f"Session {session_id} not found or inactive"}
+        
+    if session.process.returncode is not None:
+        return {"error": f"Session {session_id} process has already exited with code {session.process.returncode}"}
+
+    try:
+        # Send input
+        input_bytes = input_text.encode(errors="replace")
+        session.process.stdin.write(input_bytes)
+        await session.process.stdin.drain()
+        
+        # Append input to log for visibility
+        with open(session.log_path, "a", encoding="utf-8") as f:
+            f.write(f"[INPUT]: {input_text}")
+
+        # Wait for reaction
+        await asyncio.sleep(wait_ms / 1000.0)
+        
+        # Read latest output
+        current_log = _read_session_log(session.log_path)
+        
+        return {
+            "success": True,
+            "latest_output": current_log,
+            "status": "running" if session.process.returncode is None else "exited"
+        }
+        
+    except Exception as e:
+        return {"error": f"Failed to send input: {str(e)}"}
+
+# Tool 10: Get Shell Output
+@tool
+async def get_shell_session_output(session_id: str) -> Dict[str, Any]:
+    """Get the latest output from a running session without sending input."""
+    manager = ShellSessionManager.get_instance()
+    session = manager.get_session(session_id)
+    
+    if not session:
+        return {"error": f"Session {session_id} not found"}
+        
+    output = _read_session_log(session.log_path)
+    is_running = session.process.returncode is None
+    
+    return {
+        "session_id": session_id,
+        "is_running": is_running,
+        "output": output
+    }
+
+# Tool 11: Terminate Session
+@tool
+async def terminate_shell_session(session_id: str) -> Dict[str, Any]:
+    """Terminate (kill) a running interactive shell session."""
+    manager = ShellSessionManager.get_instance()
+    session = manager.get_session(session_id)
+    
+    if not session:
+        return {"error": f"Session {session_id} not found"}
+        
+    try:
+        if session.process.returncode is None:
+            session.process.terminate()
+            try:
+                await asyncio.wait_for(session.process.wait(), timeout=2.0)
+            except asyncio.TimeoutError:
+                session.process.kill()
+                
+        manager.remove_session(session_id)
+        
+        # Cleanup log? Maybe keep it for history.
+        
+        return {"success": True, "message": f"Session {session_id} terminated"}
+    except Exception as e:
+        return {"error": f"Failed to terminate: {str(e)}"}

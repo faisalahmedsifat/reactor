@@ -104,30 +104,18 @@ async def agent_node(state: ShellAgentState) -> Dict[str, Any]:
     )
 
     # Construct the message stack
-    # OPTIMIZATION: Context Pruning
-    # Instead of sending the full history (which can be huge), we only send:
-    # 1. System Prompt (with tool definitions)
-    # 2. The specific instruction (as a HumanMessage to ensure clarity)
-    # This drastically reduces input tokens for the Agent node.
+    # REFINEMENT: Sliding Window Context
+    # We include the last 10 messages to provide immediate context (e.g., "I just ran ls, here is the output").
+    # This solves the "stuck" issue where the Agent forgets recent tool results.
+    # The Brain handles the global history/strategy, but the Hands need local context to act intelligently.
     
     combined_system_content = f"{system_prompt_content}"
     
-    # We treat the instruction as a fresh "Human" request to the Agent
-    # This ensures the LLM focuses ONLY on this task and isn't distracted by previous turns.
-    # Note: We do NOT include 'messages' from state here.
-    # We treat the instruction as a fresh "Human" request to the Agent
-    # This ensures the LLM focuses ONLY on this task and isn't distracted by previous turns.
-    # Note: We do NOT include 'messages' from state here.
-    
     context_messages = [SystemMessage(content=combined_system_content)]
     
-    # REFINEMENT: Include the last tool result if it exists.
-    # This prevents "Amnesia Loops" where the Agent validates a command, gets "Safe",
-    # but then forgets it validated and validates again because it's stateless.
-    from langchain_core.messages import ToolMessage
-    
-    if messages and isinstance(messages[-1], ToolMessage):
-        context_messages.append(messages[-1])
+    # Get last 10 messages for local context
+    recent_messages = messages[-10:] if messages else []
+    context_messages.extend(recent_messages)
         
     context_messages.append(HumanMessage(content=f"Execute this instruction:\n\n{current_instruction}"))
     

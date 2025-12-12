@@ -11,7 +11,7 @@ import difflib
 import asyncio
 import fnmatch
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
@@ -30,12 +30,13 @@ except ImportError:
         REACTOR_AVAILABLE = False
 
 
-def calculate_diff_stats(original_content: str, new_content: str) -> Dict[str, int]:
-    """Calculate lines added and removed between two strings."""
-    original_lines = original_content.splitlines()
-    new_lines = new_content.splitlines()
+def calculate_diff_stats(original_content: str, new_content: str, filename: str = "file") -> Dict[str, Any]:
+    """Calculate lines added/removed and generate unified diff."""
+    original_lines = original_content.splitlines(keepends=True)
+    new_lines = new_content.splitlines(keepends=True)
 
-    matcher = difflib.SequenceMatcher(None, original_lines, new_lines)
+    # Calculate stats
+    matcher = difflib.SequenceMatcher(None, [l.strip() for l in original_lines], [l.strip() for l in new_lines])
     added = 0
     removed = 0
 
@@ -48,7 +49,17 @@ def calculate_diff_stats(original_content: str, new_content: str) -> Dict[str, i
         elif tag == "insert":
             added += j2 - j1
 
-    return {"added": added, "removed": removed}
+    # Generate unified diff
+    diff_lines = list(difflib.unified_diff(
+        original_lines,
+        new_lines,
+        fromfile=f"a/{filename}",
+        tofile=f"b/{filename}",
+        lineterm=""
+    ))
+    diff_text = "".join(diff_lines)
+
+    return {"added": added, "removed": removed, "diff_text": diff_text}
 
 
 @tool
@@ -440,7 +451,7 @@ async def write_file(file_path: str, content: str, mode: str = "create", enable_
             new_file_content = f.read()
 
         # Calculate diff stats
-        diff_stats = calculate_diff_stats(original_content, new_file_content)
+        diff_stats = calculate_diff_stats(original_content, new_file_content, filename=path.name)
 
         # Get file stats
         file_size = path.stat().st_size
@@ -537,7 +548,7 @@ async def modify_file(
             replacements = occurrences_found
 
         # Calculate diff stats
-        diff_stats = calculate_diff_stats(original_content, new_content)
+        diff_stats = calculate_diff_stats(original_content, new_content, filename=path.name)
 
         # Write back
         with open(path, "w", encoding="utf-8") as f:
@@ -672,7 +683,7 @@ async def edit_file(file_path: str, edits: List[Dict[str, str]], enable_reactor:
             }
 
         # Calculate diff stats
-        diff_stats = calculate_diff_stats(original_content, content)
+        diff_stats = calculate_diff_stats(original_content, content, filename=path.name)
 
         # atomic write
         with open(path, "w", encoding="utf-8") as f:

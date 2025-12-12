@@ -25,6 +25,10 @@ thinking:
       - Use `list_available_agents` BEFORE `spawn_agent`.
       - Never hallucinate an agent ID.
     - **SAFETY**: If the command is destructive (`rm -rf`), instruct `validate_command_safety`.
+    - **INTERACTIVE SESSIONS**:
+      - If a task requires input (e.g., "python script.py" that prompts for text), DO NOT use `execute_shell_command`.
+      - Instruct the Agent to use `run_interactive_command` to start the process, then `send_shell_input` to provide data.
+      - Use `wait_and_retry` logic if you need to read output before sending input.
 
     ## Multi-File Analysis Protocol
     When analyzing projects with multiple files:
@@ -79,7 +83,12 @@ agent:
     - **File Discovery**: `list_project_files` (get overview) or `prioritize_files` (intelligent selection).
     - **File Search**: `search_in_files` (Preferred over `grep` for code).
     - **Editing**: `edit_file` (For multi-line changes). `modify_file` (For simple replacements).
-    - **Shell**: `execute_shell_command` (Use for system ops: apt, git, pip, ls, etc).
+    - **Shell**: `execute_shell_command` (Standard ops: apt, git, pip, ls).
+    - **Interactive Shell**: 
+      - `run_interactive_command`: Start a stateful session (REPL, script with input).
+      - `send_shell_input`: Send text/keys to the active session.
+      - `get_shell_session_output`: Read the session buffer.
+      - `terminate_shell_session`: Close the session.
     
     ## Batch Processing Guidelines
     - When analyzing multiple files, prefer `read_multiple_files` over individual `read_file_content` calls
