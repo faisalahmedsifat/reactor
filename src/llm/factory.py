@@ -5,8 +5,10 @@ Fixed factory that returns raw ChatModel for LangGraph
 """
 
 import os
+import asyncio
 from typing import Literal, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 
 
 class LLMFactory:
@@ -96,3 +98,43 @@ class LLMFactory:
         Now returns BaseChatModel instead of ToolEnabledLLMClient.
         """
         return LLMFactory.create_chat_model(provider, model, **kwargs)
+
+    @staticmethod
+    async def validate_connection(
+        provider: str, model: Optional[str] = None, **kwargs
+    ) -> tuple[bool, str]:
+        """
+        Validate LLM connection by sending a simple test message.
+
+        Returns:
+            tuple[bool, str]: (is_valid, error_message)
+        """
+        try:
+            chat_model = LLMFactory.create_chat_model(provider, model, **kwargs)
+            # Send a simple test message
+            test_message = HumanMessage(content="Hello")
+            await chat_model.ainvoke([test_message])
+            return True, ""
+        except Exception as e:
+            error_msg = str(e)
+            # Provide more user-friendly error messages
+            if "Resource has been exhausted" in error_msg or "429" in error_msg:
+                return (
+                    False,
+                    f"Rate limit exceeded for {provider}. Please try again later.",
+                )
+            elif (
+                "authentication" in error_msg.lower()
+                or "invalid api key" in error_msg.lower()
+            ):
+                return (
+                    False,
+                    f"Invalid API key for {provider}. Please check your credentials.",
+                )
+            elif "connection" in error_msg.lower() or "connect" in error_msg.lower():
+                return (
+                    False,
+                    f"Cannot connect to {provider} service. Please check your network.",
+                )
+            else:
+                return False, f"Connection error with {provider}: {error_msg}"

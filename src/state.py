@@ -5,7 +5,7 @@ from langchain_core.messages import BaseMessage
 from src.models import CommandIntent, ExecutionPlan, ExecutionResult
 
 
-class ShellAgentState(TypedDict):
+class ShellAgentState(TypedDict, total=False):
     """LangGraph state for shell automation"""
 
     messages: Annotated[Sequence[BaseMessage], add_messages]
@@ -24,3 +24,18 @@ class ShellAgentState(TypedDict):
     active_agent: Optional[str]  # New: current agent name
     active_skills: List[str]  # New: active skill names
     next_step: Optional[str]  # New: next step to execute
+
+    # Enhanced analysis state for multi-file projects
+    project_context: Optional[Dict[str, Any]]  # Project structure and metadata
+    files_analyzed: List[str]  # Track which files have been analyzed
+    analysis_phase: Literal[
+        "discovery", "analysis", "synthesis", "complete"
+    ]  # Current analysis phase
+
+    # AST-aware fields for intelligent code analysis
+    ast_cache: Optional[Dict[str, Any]]  # Parsed ASTs by file
+    dependency_graph: Optional[Dict[str, List[str]]]  # File dependencies
+    function_index: Optional[Dict[str, List[Dict[str, Any]]]]  # Functions by file
+    class_index: Optional[Dict[str, List[Dict[str, Any]]]]  # Classes by file
+    import_graph: Optional[Dict[str, List[str]]]  # Import relationships
+    ast_analysis_enabled: bool  # Whether AST analysis is available

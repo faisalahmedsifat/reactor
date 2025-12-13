@@ -53,7 +53,7 @@ class AgentInstance:
         # Graph internals - exclude agent tools for sub-agents to prevent recursive spawning
         self.graph = create_shell_agent(exclude_agent_tools=True)
         self.checkpointer = MemorySaver()
-        self.config = {"configurable": {"thread_id": self.id}, "recursion_limit": 200}
+        self.config = {"configurable": {"thread_id": self.id}, "recursion_limit": 150}
 
     async def start(self):
         """Start the agent loop in a background task"""

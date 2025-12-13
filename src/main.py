@@ -164,7 +164,7 @@ def configure_environment(args):
 
 
 def validate_config():
-    """Validate that necessary configuration exists"""
+    """Validate that necessary configuration exists and connection works"""
     # Check if provider is set at all first
     provider = os.getenv("LLM_PROVIDER")
 
@@ -177,7 +177,22 @@ def validate_config():
         }
 
         if provider == "ollama":
-            return True
+            # For Ollama, just test basic connectivity without async
+            try:
+                import requests
+
+                response = requests.get("http://localhost:11434/api/tags", timeout=5)
+                if response.status_code != 200:
+                    print(f"\n❌ Error: Ollama service not responding")
+                    print(
+                        f"👉 Please ensure Ollama is running on http://localhost:11434"
+                    )
+                    return False
+                return True
+            except Exception as e:
+                print(f"\n❌ Error: Cannot connect to Ollama service")
+                print(f"👉 Please ensure Ollama is running: {e}")
+                return False
 
         env_var = required_vars.get(provider)
         if env_var and not os.getenv(env_var):
@@ -185,6 +200,10 @@ def validate_config():
             print(f"👉 Please set {env_var} in your .env file")
             print(f"   OR pass it via CLI: --api-key <key>")
             return False
+
+        # For cloud providers, just validate API key presence for now
+        # Connection testing will happen at runtime
+        print(f"✅ {provider.capitalize()} provider configured")
         return True
 
     # If NO provider set (and no auto-detect succeed), check default fallback (anthropic)

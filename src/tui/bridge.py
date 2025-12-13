@@ -261,7 +261,7 @@ class AgentBridge:
             "analysis_data": None,
         }
 
-        config = {"configurable": {"thread_id": self.thread_id}, "recursion_limit": 200}
+        config = {"configurable": {"thread_id": self.thread_id}, "recursion_limit": 150}
 
         # Notify TUI that processing started
         await self.tui_app.on_agent_start()

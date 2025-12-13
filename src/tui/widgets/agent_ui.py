@@ -279,33 +279,104 @@ class LogViewer(VerticalScroll):
                 pass
 
 
-class LiveExecutionPanel(Vertical):
-    """Panel to show live output of running commands"""
+class InteractiveShellPanel(Vertical):
+    """Panel to show live output of interactive shell sessions"""
 
-    # We don't use reactive output directly anymore, we update the TextArea
     _poll_timer: Optional[object] = None
+    current_log_path: Optional[str] = None
+    session_id: Optional[str] = None
+    log_file_pos: int = 0
+
+    # Bindings for keyboard shortcuts
+    BINDINGS = [
+        Binding("ctrl+k", "kill_session", "Kill Session", priority=True),
+    ]
+
+    class ShellInputSubmitted(Message):
+        """Posted when user submits input to the shell"""
+
+        def __init__(self, session_id: str, value: str):
+            self.session_id = session_id
+            self.value = value
+            super().__init__()
+
+    class KillShellSession(Message):
+        """Posted when user requests to kill the current session"""
+
+        def __init__(self, session_id: str):
+            self.session_id = session_id
+            super().__init__()
+
+    class SessionSelected(Message):
+        """Posted when user selects a different session"""
+
+        def __init__(self, session_id: str):
+            self.session_id = session_id
+            super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield Label("Live Output", classes="panel-header")
-        # TextArea supports selection and scrolling natively
-        yield TextArea(
-            "",
-            language="text",
-            read_only=True,
-            id="live-output-text",
+        yield Label("Interactive Shell", classes="panel-header")
+        yield RichLog(
+            id="shell-output-log",
             classes="cyber-textarea",
+            highlight=False,
+            markup=False,
+            wrap=True,
+        )
+        yield Input(
+            placeholder="Type command...", id="shell-input", classes="shell-input"
         )
         with Horizontal(classes="panel-footer"):
-            yield Button("📋 Copy Log", id="copy-live-btn", variant="default")
-            yield Label("", id="live-status")
+            # Use Select for session management instead of static label
+            from textual.widgets import Select
 
-    def on_mount(self) -> None:
-        pass
+            yield Select(
+                [],
+                prompt="No Active Sessions",
+                id="session-select",
+                classes="session-select",
+                allow_blank=True,
+            )
+            # Add explicit Kill button next to Copy
+            yield Button(
+                "💀 Kill (Ctrl+K)",
+                id="kill-shell-btn",
+                variant="error",
+                classes="kill-btn",
+            )
+            yield Button("📋 Copy", id="copy-shell-btn", variant="default")
 
-    def start_monitoring(self, command: str) -> None:
-        """Start monitoring the live output log."""
-        text_area = self.query_one("#live-output-text", TextArea)
-        text_area.text = f"Executing: {command}\nWaiting for output..."
+    def start_monitoring(self, session_id: str, log_path: str) -> None:
+        """Start monitoring a specific session log."""
+        self.session_id = session_id
+        self.current_log_path = log_path
+        self.log_file_pos = 0
+
+        rich_log = self.query_one("#shell-output-log", RichLog)
+        rich_log.clear()
+        rich_log.write(
+            f"--- Attached to Session {session_id} ---\nWaiting for output..."
+        )
+
+        # Update select
+        from textual.widgets import Select
+
+        select = self.query_one("#session-select", Select)
+        # We might need to fetch all sessions from app, but for now ensure current is selected
+        # If the option doesn't exist, simple-hack add it
+        current_options = [x[0] for x in select.options] if select.options else []
+        if session_id not in current_options:
+            # This is a bit hacky, normally app should drive the list
+            pass
+        select.value = session_id
+        select.prompt = f"ACTIVE: {session_id}"
+
+        # Enable input
+        shell_input = self.query_one("#shell-input", Input)
+        shell_input.disabled = False
+        shell_input.value = ""
+        shell_input.focus()
+
         self.remove_class("-hidden")
         self.styles.display = "block"
 
@@ -313,66 +384,86 @@ class LiveExecutionPanel(Vertical):
         self.set_interval(0.2, self._poll_log)
 
     def stop_monitoring(self) -> None:
-        pass
+        """Stop monitoring."""
+        from textual.widgets import Select
+
+        select = self.query_one("#session-select", Select)
+        select.prompt = f"CLOSED: {self.session_id}"
+        select.value = None
+
+        # Disable input
+        shell_input = self.query_one("#shell-input", Input)
+        shell_input.disabled = True
+
+        self.current_log_path = None
+        self.session_id = None
+
+    def update_session_list(self, sessions: List[str], active_id: Optional[str] = None):
+        """Update the dropdown of active sessions"""
+        from textual.widgets import Select
+
+        select = self.query_one("#session-select", Select)
+        options = [(s, s) for s in sessions]
+        select.set_options(options)
+        if active_id:
+            select.value = active_id
 
     def _poll_log(self) -> None:
-        """Read the live log file and update display."""
-        import logging
+        """Read the live log file incrementally and update display."""
+        if not self.current_log_path:
+            return
 
-        logger = logging.getLogger(__name__)
         try:
-            import tempfile
+            log_path = Path(self.current_log_path)
+            if not log_path.exists():
+                return
 
-            log_path = Path(tempfile.gettempdir()) / "reactor_live_output.log"
-            if log_path.exists():
-                content = log_path.read_text(encoding="utf-8")
-                # Truncate if too long
-                truncated = False
-                if len(content) > 50000:
-                    content = "... [truncated] ...\n" + content[-50000:]
-                    truncated = True
+            with open(log_path, "rb") as f:
+                f.seek(self.log_file_pos)
+                new_data = f.read()
 
-                text_area = self.query_one("#live-output-text", TextArea)
+                if new_data:
+                    self.log_file_pos = f.tell()
+                    text_content = new_data.decode("utf-8", errors="replace")
+                    rich_text = Text.from_ansi(text_content)
 
-                # Check if content actually changed to avoid cursor reset
-                if text_area.text != content:
-                    # Save cursor? TextArea might reset cursor on setting text.
-                    # Ideally we append? But we read full file.
-                    # Just set text and scroll end.
-                    text_area.text = content
-                    text_area.scroll_end(animate=False)
-            else:
-                # File doesn't exist yet, which is fine if command hasn't started writing
-                pass
-        except Exception as e:
-            # Silent fail on poll to avoid spamming main log
+                    rich_log = self.query_one("#shell-output-log", RichLog)
+                    rich_log.write(rich_text)
+        except Exception:
             pass
 
-    def set_content(self, result: ExecutionResult) -> None:
-        """Update panel content from an ExecutionResult."""
-        text_area = self.query_one("#live-output-text", TextArea)
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "shell-input":
+            if self.session_id and event.value:
+                self.post_message(
+                    self.ShellInputSubmitted(self.session_id, event.value)
+                )
+                event.input.value = ""
 
-        content = (
-            f"CMD: {result.command}\n"
-            f"EXIT CODE: {result.exit_code}\n\n"
-            f"--- STDOUT ---\n{result.stdout}\n\n"
-            f"--- STDERR ---\n{result.stderr}\n"
-        )
-        text_area.text = content
-        text_area.scroll_end()
-
-    def clear(self) -> None:
-        """Clear the panel content."""
-        self.query_one("#live-output-text", TextArea).text = ""
+    def action_kill_session(self) -> None:
+        """Handle kill session action (Ctrl+K)"""
+        if self.session_id:
+            self.post_message(self.KillShellSession(self.session_id))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "copy-live-btn":
-            text_area = self.query_one("#live-output-text", TextArea)
+        if event.button.id == "copy-shell-btn":
+            # Copy implementation...
             try:
-                self.app.copy_to_clipboard(text_area.text)
-                self.notify("Log copied to clipboard!")
+                self.notify(
+                    "Copy not fully supported on RichLog yet.", severity="warning"
+                )
             except Exception:
-                self.notify("Failed to copy.", severity="error")
+                pass
+        elif event.button.id == "kill-shell-btn":
+            self.action_kill_session()
+
+    def on_select_changed(self, event) -> None:
+        """Handle session switch"""
+        from textual.widgets import Select
+
+        if event.control.id == "session-select":
+            if event.value and event.value != self.session_id:
+                self.post_message(self.SessionSelected(event.value))
 
 
 class StateIndicator(Static):

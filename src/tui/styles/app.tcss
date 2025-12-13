@@ -307,6 +307,20 @@ StateIndicator {
     background: $bg-secondary;
 }
 
+/* Shell Input */
+.shell-input {
+    height: 3;
+    background: $bg-tertiary;
+    color: $accent-green;
+    border: solid $border-dim;
+    padding: 0 1;
+    margin-bottom: 0;
+}
+
+.shell-input:focus {
+    border: solid $accent-cyan;
+}
+
 /* Collapsible Widget Styles */
 Collapsible {
     height: auto;
