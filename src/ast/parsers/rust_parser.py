@@ -8,30 +8,41 @@ import time
 import json
 from typing import Dict, List, Any, Optional
 
-from ..core.base_parser import BaseParser, ASTResult, Language, Parameter, Property, Method, Function, Class, Import, Variable
+from ..core.base_parser import (
+    BaseParser,
+    ASTResult,
+    Language,
+    Parameter,
+    Property,
+    Method,
+    Function,
+    Class,
+    Import,
+    Variable,
+)
 
 
 class RustParser(BaseParser):
     """Rust language parser using syn crate."""
-    
+
     def __init__(self):
         super().__init__()
         self.language = Language.RUST
-        
+
     def get_supported_extensions(self) -> List[str]:
         """Return list of supported file extensions."""
-        return ['.rs']
-        
+        return [".rs"]
+
     async def parse_file(self, file_path: str, content: str) -> ASTResult:
         """Parse Rust file and extract AST information."""
         start_time = time.time()
-        
+
         try:
             # Use syn via a temporary Rust program
             ast_data = await asyncio.get_event_loop().run_in_executor(
                 None, self._extract_rust_ast, file_path, content
             )
-            
+
             # Convert to ASTResult
             functions = self._convert_functions(ast_data.get("functions", []))
             classes = self._convert_structs(ast_data.get("structs", []))
@@ -39,9 +50,9 @@ class RustParser(BaseParser):
             classes.extend(self._convert_enums(ast_data.get("enums", [])))
             imports = self._convert_imports(ast_data.get("imports", []))
             variables = self._convert_variables(ast_data.get("variables", []))
-            
+
             parse_time = int((time.time() - start_time) * 1000)
-            
+
             return ASTResult(
                 success=True,
                 language=self.language,
@@ -56,43 +67,45 @@ class RustParser(BaseParser):
                     "traits": ast_data.get("traits", []),
                     "impl_blocks": ast_data.get("impl_blocks", []),
                     "unsafe_blocks": ast_data.get("unsafe_blocks", []),
-                    "lifetimes": ast_data.get("lifetimes", [])
+                    "lifetimes": ast_data.get("lifetimes", []),
                 },
-                parse_time_ms=parse_time
+                parse_time_ms=parse_time,
             )
-            
+
         except Exception as e:
             parse_time = int((time.time() - start_time) * 1000)
             return ASTResult(
                 success=False,
                 language=self.language,
                 error=str(e),
-                parse_time_ms=parse_time
+                parse_time_ms=parse_time,
             )
-    
+
     async def parse_batch(self, file_paths: List[str]) -> List[ASTResult]:
         """Parse multiple files in parallel."""
         tasks = []
         for file_path in file_paths:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     content = f.read()
                 tasks.append(self.parse_file(file_path, content))
             except Exception as e:
+
                 async def error_result():
                     return ASTResult(
                         success=False,
                         language=self.language,
-                        error=f"Cannot read file: {str(e)}"
+                        error=f"Cannot read file: {str(e)}",
                     )
+
                 tasks.append(error_result())
-        
+
         return await asyncio.gather(*tasks)
-    
+
     def _extract_rust_ast(self, file_path: str, content: str) -> Dict[str, Any]:
         """Extract AST information using Rust's syn crate."""
         # Create a temporary Rust program to parse the file
-        rust_parser_code = '''
+        rust_parser_code = """
 use syn::{Item, ItemFn, ItemStruct, ItemEnum, ItemTrait, ItemMod, ItemUse, ItemImpl, ItemConst, ItemStatic};
 use syn::{Attribute, Signature, Fields, Variant, Generics, WhereClause, TraitBound, Lifetime, TypeParam, ConstParam};
 use quote::quote;
@@ -763,10 +776,10 @@ fn extract_doc(attrs: &[Attribute]) -> String {
 fn extract_attributes(attrs: &[Attribute]) -> Vec<String> {
     attrs.iter().map(|attr| quote!(#attr).to_string()).collect()
 }
-'''
-        
+"""
+
         # Create Cargo.toml for the parser
-        cargo_toml = '''
+        cargo_toml = """
 [package]
 name = "rust_ast_parser"
 version = "0.1.0"
@@ -777,104 +790,116 @@ syn = { version = "2.0", features = ["full", "extra-traits"] }
 quote = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-'''
-        
+"""
+
         # Create temporary directory for Rust project
         with tempfile.TemporaryDirectory() as temp_dir:
             # Write Cargo.toml
-            with open(os.path.join(temp_dir, 'Cargo.toml'), 'w') as f:
+            with open(os.path.join(temp_dir, "Cargo.toml"), "w") as f:
                 f.write(cargo_toml)
-            
+
             # Create src directory
-            src_dir = os.path.join(temp_dir, 'src')
+            src_dir = os.path.join(temp_dir, "src")
             os.makedirs(src_dir)
-            
+
             # Write main.rs
-            with open(os.path.join(src_dir, 'main.rs'), 'w') as f:
+            with open(os.path.join(src_dir, "main.rs"), "w") as f:
                 f.write(rust_parser_code)
-            
+
             # Write the target Rust file
-            target_file = os.path.join(src_dir, 'target.rs')
-            with open(target_file, 'w') as f:
+            target_file = os.path.join(src_dir, "target.rs")
+            with open(target_file, "w") as f:
                 f.write(content)
-            
+
             try:
                 # Run the Rust parser
                 result = subprocess.run(
-                    ['cargo', 'run', '--bin', 'rust_ast_parser', target_file],
+                    ["cargo", "run", "--bin", "rust_ast_parser", target_file],
                     cwd=temp_dir,
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
-                
+
                 if result.returncode == 0:
                     return json.loads(result.stdout)
                 else:
                     raise Exception(f"Rust parser failed: {result.stderr}")
-                    
+
             except subprocess.TimeoutExpired:
                 raise Exception("Rust parser timed out")
-    
+
     def _convert_functions(self, functions_data: List[Dict]) -> List[Function]:
         """Convert function data to Function objects."""
         functions = []
         for func_data in functions_data:
             parameters = []
             for param_data in func_data.get("parameters", []):
-                parameters.append(Parameter(
-                    name=param_data["name"],
-                    type_hint=param_data["type_name"],
-                    default_value=None,
-                    is_optional=False,
-                    docstring=None
-                ))
-            
-            functions.append(Function(
-                name=func_data["name"],
-                parameters=parameters,
-                return_type=func_data["return_type"],
-                decorators=func_data.get("attributes", []),
-                docstring=func_data.get("doc", ""),
-                line_number=func_data["line"],
-                complexity_score=1,
-                is_async=func_data.get("is_async", False),
-                is_method=False,
-                class_name=None
-            ))
-        
+                parameters.append(
+                    Parameter(
+                        name=param_data["name"],
+                        type_hint=param_data["type_name"],
+                        default_value=None,
+                        is_optional=False,
+                        docstring=None,
+                    )
+                )
+
+            functions.append(
+                Function(
+                    name=func_data["name"],
+                    parameters=parameters,
+                    return_type=func_data["return_type"],
+                    decorators=func_data.get("attributes", []),
+                    docstring=func_data.get("doc", ""),
+                    line_number=func_data["line"],
+                    complexity_score=1,
+                    is_async=func_data.get("is_async", False),
+                    is_method=False,
+                    class_name=None,
+                )
+            )
+
         return functions
-    
+
     def _convert_structs(self, structs_data: List[Dict]) -> List[Class]:
         """Convert struct data to Class objects."""
         classes = []
         for struct_data in structs_data:
             properties = []
             for field_data in struct_data.get("fields", []):
-                properties.append(Property(
-                    name=field_data["name"],
-                    type_hint=field_data["type_name"],
+                properties.append(
+                    Property(
+                        name=field_data["name"],
+                        type_hint=field_data["type_name"],
+                        line_number=struct_data["line"],
+                        default_value=None,
+                        access_level=(
+                            "public" if field_data.get("is_pub", False) else "private"
+                        ),
+                        docstring=None,
+                        is_property=True,
+                    )
+                )
+
+            classes.append(
+                Class(
+                    name=struct_data["name"],
+                    base_classes=[],
+                    methods=[],
+                    properties=properties,
+                    decorators=struct_data.get("attributes", []),
+                    docstring=struct_data.get("doc", ""),
                     line_number=struct_data["line"],
-                    default_value=None,
-                    access_level="public" if field_data.get("is_pub", False) else "private",
-                    docstring=None,
-                    is_property=True
-                ))
-            
-            classes.append(Class(
-                name=struct_data["name"],
-                base_classes=[],
-                methods=[],
-                properties=properties,
-                decorators=struct_data.get("attributes", []),
-                docstring=struct_data.get("doc", ""),
-                line_number=struct_data["line"],
-                is_abstract=False,
-                access_level="public" if struct_data.get("is_exported", False) else "private"
-            ))
-        
+                    is_abstract=False,
+                    access_level=(
+                        "public" if struct_data.get("is_exported", False) else "private"
+                    ),
+                )
+            )
+
         return classes
-    
+
     def _convert_traits(self, traits_data: List[Dict]) -> List[Class]:
         """Convert trait data to Class objects."""
         classes = []
@@ -883,40 +908,48 @@ serde_json = "1.0"
             for method_data in trait_data.get("methods", []):
                 parameters = []
                 for param_data in method_data.get("parameters", []):
-                    parameters.append(Parameter(
-                        name=param_data["name"],
-                        type_hint=param_data["type_name"],
-                        default_value=None,
-                        is_optional=False,
-                        docstring=None
-                    ))
-                
-                methods.append(Method(
-                    name=method_data["name"],
-                    parameters=parameters,
-                    return_type=method_data["return_type"],
-                    decorators=method_data.get("attributes", []),
-                    docstring=method_data.get("doc", ""),
-                    line_number=method_data["line"],
-                    access_level="public",
-                    is_static=False,
-                    is_async=method_data.get("is_async", False)
-                ))
-            
-            classes.append(Class(
-                name=trait_data["name"],
-                base_classes=trait_data.get("supertraits", []),
-                methods=methods,
-                properties=[],
-                decorators=trait_data.get("attributes", []),
-                docstring=trait_data.get("doc", ""),
-                line_number=trait_data["line"],
-                is_abstract=True,
-                access_level="public" if trait_data.get("is_exported", False) else "private"
-            ))
-        
+                    parameters.append(
+                        Parameter(
+                            name=param_data["name"],
+                            type_hint=param_data["type_name"],
+                            default_value=None,
+                            is_optional=False,
+                            docstring=None,
+                        )
+                    )
+
+                methods.append(
+                    Method(
+                        name=method_data["name"],
+                        parameters=parameters,
+                        return_type=method_data["return_type"],
+                        decorators=method_data.get("attributes", []),
+                        docstring=method_data.get("doc", ""),
+                        line_number=method_data["line"],
+                        access_level="public",
+                        is_static=False,
+                        is_async=method_data.get("is_async", False),
+                    )
+                )
+
+            classes.append(
+                Class(
+                    name=trait_data["name"],
+                    base_classes=trait_data.get("supertraits", []),
+                    methods=methods,
+                    properties=[],
+                    decorators=trait_data.get("attributes", []),
+                    docstring=trait_data.get("doc", ""),
+                    line_number=trait_data["line"],
+                    is_abstract=True,
+                    access_level=(
+                        "public" if trait_data.get("is_exported", False) else "private"
+                    ),
+                )
+            )
+
         return classes
-    
+
     def _convert_enums(self, enums_data: List[Dict]) -> List[Class]:
         """Convert enum data to Class objects."""
         classes = []
@@ -924,96 +957,135 @@ serde_json = "1.0"
             # Convert enum variants to methods for representation
             methods = []
             for variant_data in enum_data.get("variants", []):
-                methods.append(Method(
-                    name=variant_data["name"],
-                    parameters=[],
-                    return_type="Self",
-                    decorators=[],
-                    docstring="",
+                methods.append(
+                    Method(
+                        name=variant_data["name"],
+                        parameters=[],
+                        return_type="Self",
+                        decorators=[],
+                        docstring="",
+                        line_number=enum_data["line"],
+                        access_level="public",
+                        is_static=True,
+                        is_async=False,
+                    )
+                )
+
+            classes.append(
+                Class(
+                    name=enum_data["name"],
+                    base_classes=[],
+                    methods=methods,
+                    properties=[],
+                    decorators=enum_data.get("attributes", []),
+                    docstring=enum_data.get("doc", ""),
                     line_number=enum_data["line"],
-                    access_level="public",
-                    is_static=True,
-                    is_async=False
-                ))
-            
-            classes.append(Class(
-                name=enum_data["name"],
-                base_classes=[],
-                methods=methods,
-                properties=[],
-                decorators=enum_data.get("attributes", []),
-                docstring=enum_data.get("doc", ""),
-                line_number=enum_data["line"],
-                is_abstract=False,
-                access_level="public" if enum_data.get("is_exported", False) else "private"
-            ))
-        
+                    is_abstract=False,
+                    access_level=(
+                        "public" if enum_data.get("is_exported", False) else "private"
+                    ),
+                )
+            )
+
         return classes
-    
+
     def _convert_imports(self, imports_data: List[Dict]) -> List[Import]:
         """Convert import data to Import objects."""
         imports = []
         for import_data in imports_data:
-            imports.append(Import(
-                module=import_data["path"],
-                name=import_data.get("name", ""),
-                alias=import_data.get("alias", ""),
-                line_number=import_data["line"],
-                import_type="use",
-                is_relative=import_data["path"].starts_with("crate::") or import_data["path"].starts_with("super::"),
-                is_standard_library=self._is_standard_library(import_data["path"])
-            ))
-        
+            imports.append(
+                Import(
+                    module=import_data["path"],
+                    name=import_data.get("name", ""),
+                    alias=import_data.get("alias", ""),
+                    line_number=import_data["line"],
+                    import_type="use",
+                    is_relative=import_data["path"].starts_with("crate::")
+                    or import_data["path"].starts_with("super::"),
+                    is_standard_library=self._is_standard_library(import_data["path"]),
+                )
+            )
+
         return imports
-    
+
     def _convert_variables(self, variables_data: List[Dict]) -> List[Variable]:
         """Convert variable data to Variable objects."""
         variables = []
         for var_data in variables_data:
-            variables.append(Variable(
-                name=var_data["name"],
-                type_hint=var_data["type_name"],
-                default_value=var_data.get("value", ""),
-                line_number=var_data["line"],
-                is_global=True,
-                is_constant=var_data.get("is_const", False)
-            ))
-        
+            variables.append(
+                Variable(
+                    name=var_data["name"],
+                    type_hint=var_data["type_name"],
+                    default_value=var_data.get("value", ""),
+                    line_number=var_data["line"],
+                    is_global=True,
+                    is_constant=var_data.get("is_const", False),
+                )
+            )
+
         return variables
-    
+
     def _is_standard_library(self, import_path: str) -> bool:
         """Check if import is from Rust standard library."""
         std_crates = {
-            "std", "core", "alloc", "proc_macro", "test",
-            "vec", "string", "collections", "hash_map", "hash_set",
-            "option", "result", "cell", "rc", "sync", "arc",
-            "box", "iter", "slice", "str", "char", "num",
-            "io", "fs", "path", "env", "process", "thread",
-            "time", "net", "os", "ffi", "fmt", "error"
+            "std",
+            "core",
+            "alloc",
+            "proc_macro",
+            "test",
+            "vec",
+            "string",
+            "collections",
+            "hash_map",
+            "hash_set",
+            "option",
+            "result",
+            "cell",
+            "rc",
+            "sync",
+            "arc",
+            "box",
+            "iter",
+            "slice",
+            "str",
+            "char",
+            "num",
+            "io",
+            "fs",
+            "path",
+            "env",
+            "process",
+            "thread",
+            "time",
+            "net",
+            "os",
+            "ffi",
+            "fmt",
+            "error",
         }
-        
+
         # Check if it starts with std::, core::, or is a direct std crate
         parts = import_path.split("::")
         return parts[0] in std_crates
-    
+
     def extract_functions(self, ast_root: Any) -> List[Function]:
         """Extract function definitions from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.functions or []
         return []
-    
+
     def extract_classes(self, ast_root: Any) -> List[Class]:
         """Extract class definitions from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.classes or []
         return []
-    
+
     def extract_imports(self, ast_root: Any) -> List[Import]:
         """Extract import statements from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.imports or []
         return []
-    
+
     def extract_variables(self, ast_root: Any) -> List[Variable]:
         """Extract variable definitions from AST."""
         if isinstance(ast_root, ASTResult):

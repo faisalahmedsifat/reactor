@@ -14,11 +14,11 @@ from .feedback import FeedbackFormatter
 
 __all__ = [
     "CodeReactor",
-    "ReactorConfig", 
+    "ReactorConfig",
     "SyntaxValidator",
     "ImportValidator",
     "DependencyAnalyzer",
     "ImpactAnalyzer",
     "AutoFixer",
-    "FeedbackFormatter"
+    "FeedbackFormatter",
 ]

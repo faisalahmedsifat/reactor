@@ -19,24 +19,30 @@ from pydantic import BaseModel, Field
 try:
     from src.reactor.code_reactor import get_global_reactor
     from src.reactor.config import get_default_config
+
     REACTOR_AVAILABLE = True
 except ImportError:
     # Fallback to relative imports if src package is not found
     try:
         from ..reactor.code_reactor import get_global_reactor
         from ..reactor.config import get_default_config
+
         REACTOR_AVAILABLE = True
     except ImportError:
         REACTOR_AVAILABLE = False
 
 
-def calculate_diff_stats(original_content: str, new_content: str, filename: str = "file") -> Dict[str, Any]:
+def calculate_diff_stats(
+    original_content: str, new_content: str, filename: str = "file"
+) -> Dict[str, Any]:
     """Calculate lines added/removed and generate unified diff."""
     original_lines = original_content.splitlines(keepends=True)
     new_lines = new_content.splitlines(keepends=True)
 
     # Calculate stats
-    matcher = difflib.SequenceMatcher(None, [l.strip() for l in original_lines], [l.strip() for l in new_lines])
+    matcher = difflib.SequenceMatcher(
+        None, [l.strip() for l in original_lines], [l.strip() for l in new_lines]
+    )
     added = 0
     removed = 0
 
@@ -50,13 +56,15 @@ def calculate_diff_stats(original_content: str, new_content: str, filename: str 
             added += j2 - j1
 
     # Generate unified diff
-    diff_lines = list(difflib.unified_diff(
-        original_lines,
-        new_lines,
-        fromfile=f"a/{filename}",
-        tofile=f"b/{filename}",
-        lineterm=""
-    ))
+    diff_lines = list(
+        difflib.unified_diff(
+            original_lines,
+            new_lines,
+            fromfile=f"a/{filename}",
+            tofile=f"b/{filename}",
+            lineterm="",
+        )
+    )
     diff_text = "".join(diff_lines)
 
     return {"added": added, "removed": removed, "diff_text": diff_text}
@@ -372,7 +380,9 @@ async def search_in_files(
 
 
 @tool
-async def write_file(file_path: str, content: str, mode: str = "create", enable_reactor: bool = True) -> Dict:
+async def write_file(
+    file_path: str, content: str, mode: str = "create", enable_reactor: bool = True
+) -> Dict:
     """
     Write content to a file. Creates the file and parent directories if they don't exist.
     Automatically runs AST analysis and validation if reactor is enabled.
@@ -451,7 +461,9 @@ async def write_file(file_path: str, content: str, mode: str = "create", enable_
             new_file_content = f.read()
 
         # Calculate diff stats
-        diff_stats = calculate_diff_stats(original_content, new_file_content, filename=path.name)
+        diff_stats = calculate_diff_stats(
+            original_content, new_file_content, filename=path.name
+        )
 
         # Get file stats
         file_size = path.stat().st_size
@@ -471,15 +483,18 @@ async def write_file(file_path: str, content: str, mode: str = "create", enable_
         if enable_reactor and REACTOR_AVAILABLE:
             try:
                 reactor = get_global_reactor()
-                reactor_feedback = await reactor.on_file_written(str(path), new_file_content, operation)
+                reactor_feedback = await reactor.on_file_written(
+                    str(path), new_file_content, operation
+                )
                 result["reactor_feedback"] = reactor_feedback
             except Exception as e:
                 # Log reactor error but don't fail the write operation
                 import logging
+
                 logging.warning(f"Reactor analysis failed for {file_path}: {str(e)}")
                 result["reactor_feedback"] = {
                     "status": "error",
-                    "error": f"Reactor analysis failed: {str(e)}"
+                    "error": f"Reactor analysis failed: {str(e)}",
                 }
 
         return result
@@ -492,7 +507,11 @@ async def write_file(file_path: str, content: str, mode: str = "create", enable_
 
 @tool
 async def modify_file(
-    file_path: str, search_text: str, replace_text: str, occurrence: str = "all", enable_reactor: bool = True
+    file_path: str,
+    search_text: str,
+    replace_text: str,
+    occurrence: str = "all",
+    enable_reactor: bool = True,
 ) -> Dict:
     """
     Modify a file by searching and replacing text. Useful for targeted edits.
@@ -548,7 +567,9 @@ async def modify_file(
             replacements = occurrences_found
 
         # Calculate diff stats
-        diff_stats = calculate_diff_stats(original_content, new_content, filename=path.name)
+        diff_stats = calculate_diff_stats(
+            original_content, new_content, filename=path.name
+        )
 
         # Write back
         with open(path, "w", encoding="utf-8") as f:
@@ -567,15 +588,18 @@ async def modify_file(
         if enable_reactor and REACTOR_AVAILABLE:
             try:
                 reactor = get_global_reactor()
-                reactor_feedback = await reactor.on_file_written(str(path), new_content, "modify")
+                reactor_feedback = await reactor.on_file_written(
+                    str(path), new_content, "modify"
+                )
                 result["reactor_feedback"] = reactor_feedback
             except Exception as e:
                 # Log reactor error but don't fail modify operation
                 import logging
+
                 logging.warning(f"Reactor analysis failed for {file_path}: {str(e)}")
                 result["reactor_feedback"] = {
                     "status": "error",
-                    "error": f"Reactor analysis failed: {str(e)}"
+                    "error": f"Reactor analysis failed: {str(e)}",
                 }
 
         return result
@@ -591,7 +615,9 @@ class FileEdit(BaseModel):
 
 
 @tool
-async def edit_file(file_path: str, edits: List[Dict[str, str]], enable_reactor: bool = True) -> Dict:
+async def edit_file(
+    file_path: str, edits: List[Dict[str, str]], enable_reactor: bool = True
+) -> Dict:
     """
     Apply multiple edits to a single file in one atomic operation.
     Automatically runs AST analysis and validation if reactor is enabled.
@@ -644,7 +670,11 @@ async def edit_file(file_path: str, edits: List[Dict[str, str]], enable_reactor:
 
             if not search:
                 changes_log.append(
-                    {"index": i, "status": "failed", "reason": "Search text not provided"}
+                    {
+                        "index": i,
+                        "status": "failed",
+                        "reason": "Search text not provided",
+                    }
                 )
                 continue
 
@@ -702,15 +732,18 @@ async def edit_file(file_path: str, edits: List[Dict[str, str]], enable_reactor:
         if enable_reactor and REACTOR_AVAILABLE:
             try:
                 reactor = get_global_reactor()
-                reactor_feedback = await reactor.on_file_written(str(path), content, "edit")
+                reactor_feedback = await reactor.on_file_written(
+                    str(path), content, "edit"
+                )
                 result["reactor_feedback"] = reactor_feedback
             except Exception as e:
                 # Log reactor error but don't fail edit operation
                 import logging
+
                 logging.warning(f"Reactor analysis failed for {file_path}: {str(e)}")
                 result["reactor_feedback"] = {
                     "status": "error",
-                    "error": f"Reactor analysis failed: {str(e)}"
+                    "error": f"Reactor analysis failed: {str(e)}",
                 }
 
         return result
@@ -726,7 +759,7 @@ async def edit_file(file_path: str, edits: List[Dict[str, str]], enable_reactor:
 async def read_multiple_files(file_paths: List[str], max_files: int = 5) -> Dict:
     """
     Read multiple files in parallel for efficient analysis.
-    
+
     Use this tool when analyzing multiple related files or getting project overview.
     More efficient than individual read_file_content calls.
 
@@ -743,21 +776,21 @@ async def read_multiple_files(file_paths: List[str], max_files: int = 5) -> Dict
     """
     if not file_paths:
         return {"error": "No file paths provided"}
-    
+
     # Limit files for performance
     file_paths = file_paths[:max_files]
-    
+
     async def read_single_file(file_path: str) -> Dict:
         """Read a single file with error handling"""
         try:
             path = Path(file_path).resolve()
-            
+
             if not path.exists():
                 return {"file_path": file_path, "error": f"File not found: {file_path}"}
-            
+
             if not path.is_file():
                 return {"file_path": file_path, "error": f"Not a file: {file_path}"}
-            
+
             # Check file size (limit to 1MB for safety)
             file_size = path.stat().st_size
             if file_size > 1_000_000:
@@ -766,18 +799,18 @@ async def read_multiple_files(file_paths: List[str], max_files: int = 5) -> Dict
                     "error": f"File too large: {file_size} bytes (max 1MB)",
                     "size_bytes": file_size,
                 }
-            
+
             # Read file content
             with open(path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-                
+
                 if len(lines) > 500:
                     content = "".join(lines[:500])
                     truncated = True
                 else:
                     content = "".join(lines)
                     truncated = False
-                
+
                 return {
                     "file_path": str(path),
                     "size_bytes": file_size,
@@ -787,7 +820,7 @@ async def read_multiple_files(file_paths: List[str], max_files: int = 5) -> Dict
                     "content": content,
                     "extension": path.suffix,
                 }
-                
+
         except UnicodeDecodeError:
             return {
                 "file_path": file_path,
@@ -795,15 +828,15 @@ async def read_multiple_files(file_paths: List[str], max_files: int = 5) -> Dict
             }
         except Exception as e:
             return {"file_path": file_path, "error": f"Error reading file: {str(e)}"}
-    
+
     # Read files in parallel
     results = await asyncio.gather(*[read_single_file(fp) for fp in file_paths])
-    
+
     # Separate successful reads from errors
     successful_files = []
     errors = []
     any_truncated = False
-    
+
     for result in results:
         if "error" in result:
             errors.append(result)
@@ -811,7 +844,7 @@ async def read_multiple_files(file_paths: List[str], max_files: int = 5) -> Dict
             successful_files.append(result)
             if result.get("truncated", False):
                 any_truncated = True
-    
+
     return {
         "files_read": len(successful_files),
         "files": successful_files,
@@ -826,20 +859,30 @@ async def _list_project_files_internal(directory: str, max_depth: int = 3) -> Di
     """Internal version of list_project_files for use within other tools"""
     # Replicate the logic without tool decoration
     directory_path = Path(directory).resolve()
-    
+
     if not directory_path.exists():
         return {"error": f"Directory not found: {directory}"}
-    
+
     files_by_extension = {}
     all_files = []
     total_files = 0
     total_dirs = 0
-    
+
     ignore_patterns = [
-        "__pycache__", "node_modules", ".git", ".venv", "venv",
-        "dist", "build", ".next", ".pytest_cache", "coverage", "*.pyc", ".env"
+        "__pycache__",
+        "node_modules",
+        ".git",
+        ".venv",
+        "venv",
+        "dist",
+        "build",
+        ".next",
+        ".pytest_cache",
+        "coverage",
+        "*.pyc",
+        ".env",
     ]
-    
+
     def should_ignore(path: Path) -> bool:
         for pattern in ignore_patterns:
             if pattern.startswith("*"):
@@ -849,36 +892,36 @@ async def _list_project_files_internal(directory: str, max_depth: int = 3) -> Di
                 if pattern in path.parts:
                     return True
         return False
-    
+
     def walk_directory(path: Path, current_depth: int = 0):
         nonlocal total_files, total_dirs
-        
+
         if current_depth > max_depth:
             return
-        
+
         try:
             for item in path.iterdir():
                 if should_ignore(item):
                     continue
-                
+
                 if item.is_file():
                     total_files += 1
                     ext = item.suffix or "(no extension)"
                     relative_path = str(item.relative_to(directory_path))
-                    
+
                     if ext not in files_by_extension:
                         files_by_extension[ext] = []
                     files_by_extension[ext].append(relative_path)
                     all_files.append(relative_path)
-                
+
                 elif item.is_dir():
                     total_dirs += 1
                     walk_directory(item, current_depth + 1)
         except PermissionError:
             pass
-    
+
     walk_directory(directory_path)
-    
+
     return {
         "directory": str(directory_path),
         "total_files": total_files,
@@ -891,7 +934,7 @@ async def _list_project_files_internal(directory: str, max_depth: int = 3) -> Di
 async def prioritize_files(directory: str = ".", file_count: int = 10) -> Dict:
     """
     Intelligently prioritize files for analysis based on importance.
-    
+
     Returns files in order of importance for understanding a project:
     1. README and documentation files
     2. Configuration files (package.json, pyproject.toml, etc.)
@@ -907,43 +950,74 @@ async def prioritize_files(directory: str = ".", file_count: int = 10) -> Dict:
         Dictionary with prioritized file list and categorization
     """
     directory_path = Path(directory).resolve()
-    
+
     if not directory_path.exists():
         return {"error": f"Directory not found: {directory}"}
-    
+
     # Priority patterns and their order
     priority_patterns = [
         # High Priority - Documentation
         ("README", ["README.md", "README.rst", "README.txt", "readme.md"]),
         ("Documentation", ["*.md", "*.rst", "*.txt"]),
-        
         # High Priority - Configuration
-        ("Package Config", ["package.json", "pyproject.toml", "Cargo.toml", "requirements.txt", "Pipfile", "composer.json", "Gemfile"]),
-        ("Build Config", ["Makefile", "CMakeLists.txt", "build.gradle", "webpack.config.js"]),
-        
+        (
+            "Package Config",
+            [
+                "package.json",
+                "pyproject.toml",
+                "Cargo.toml",
+                "requirements.txt",
+                "Pipfile",
+                "composer.json",
+                "Gemfile",
+            ],
+        ),
+        (
+            "Build Config",
+            ["Makefile", "CMakeLists.txt", "build.gradle", "webpack.config.js"],
+        ),
         # High Priority - Entry Points
-        ("Entry Points", ["main.py", "app.py", "server.py", "index.js", "app.js", "server.js", "main.rs", "lib.rs", "src/main.rs"]),
-        
+        (
+            "Entry Points",
+            [
+                "main.py",
+                "app.py",
+                "server.py",
+                "index.js",
+                "app.js",
+                "server.js",
+                "main.rs",
+                "lib.rs",
+                "src/main.rs",
+            ],
+        ),
         # Medium Priority - Core Source
         ("Python Source", ["src/**/*.py", "**/*.py"]),
         ("JavaScript Source", ["src/**/*.js", "**/*.js", "src/**/*.ts", "**/*.ts"]),
         ("Rust Source", ["src/**/*.rs", "**/*.rs"]),
-        
         # Medium Priority - Tests
         ("Tests", ["test/**/*.py", "**/*test*.py", "tests/**/*.js", "**/*test*.js"]),
-        
         # Low Priority - Other
         ("Other", []),
     ]
-    
+
     all_files = []
-    
+
     # Walk directory and collect files
     ignore_patterns = [
-        "__pycache__", "node_modules", ".git", ".venv", "venv",
-        "dist", "build", ".next", ".pytest_cache", "coverage", "*.pyc"
+        "__pycache__",
+        "node_modules",
+        ".git",
+        ".venv",
+        "venv",
+        "dist",
+        "build",
+        ".next",
+        ".pytest_cache",
+        "coverage",
+        "*.pyc",
     ]
-    
+
     def should_ignore(path: Path) -> bool:
         for pattern in ignore_patterns:
             if pattern.startswith("*"):
@@ -953,16 +1027,16 @@ async def prioritize_files(directory: str = ".", file_count: int = 10) -> Dict:
                 if pattern in path.parts:
                     return True
         return False
-    
+
     def walk_directory(path: Path, depth: int = 0):
         if depth > 4:  # Limit depth
             return
-        
+
         try:
             for item in path.iterdir():
                 if should_ignore(item):
                     continue
-                
+
                 if item.is_file():
                     relative_path = str(item.relative_to(directory_path))
                     all_files.append(relative_path)
@@ -970,45 +1044,54 @@ async def prioritize_files(directory: str = ".", file_count: int = 10) -> Dict:
                     walk_directory(item, depth + 1)
         except PermissionError:
             pass
-    
+
     walk_directory(directory_path)
-    
+
     # Categorize and prioritize files
     prioritized_files = []
     used_files = set()
-    
+
     for category_name, patterns in priority_patterns:
         category_files = []
-        
+
         for pattern in patterns:
             if pattern.startswith("**"):
                 # Glob pattern
                 import fnmatch
-                matches = [f for f in all_files if fnmatch.fnmatch(f, pattern) and f not in used_files]
+
+                matches = [
+                    f
+                    for f in all_files
+                    if fnmatch.fnmatch(f, pattern) and f not in used_files
+                ]
                 category_files.extend(matches)
             elif pattern.startswith("*"):
                 # Extension pattern
                 ext = pattern[1:]
-                matches = [f for f in all_files if f.endswith(ext) and f not in used_files]
+                matches = [
+                    f for f in all_files if f.endswith(ext) and f not in used_files
+                ]
                 category_files.extend(matches)
             else:
                 # Exact match
                 matches = [f for f in all_files if f == pattern and f not in used_files]
                 category_files.extend(matches)
-        
+
         # Add unique files from this category
         for file_path in category_files:
             if file_path not in used_files and len(prioritized_files) < file_count:
-                prioritized_files.append({
-                    "path": file_path,
-                    "category": category_name,
-                    "priority": len(prioritized_files) + 1
-                })
+                prioritized_files.append(
+                    {
+                        "path": file_path,
+                        "category": category_name,
+                        "priority": len(prioritized_files) + 1,
+                    }
+                )
                 used_files.add(file_path)
-        
+
         if len(prioritized_files) >= file_count:
             break
-    
+
     return {
         "directory": str(directory_path),
         "total_files_found": len(all_files),
@@ -1022,7 +1105,7 @@ async def prioritize_files(directory: str = ".", file_count: int = 10) -> Dict:
 async def analyze_project_structure(directory: str = ".", max_depth: int = 3) -> Dict:
     """
     Analyze project structure and identify key characteristics.
-    
+
     Provides insights about:
     - Project type (Python, JavaScript, Rust, etc.)
     - Build system used
@@ -1038,36 +1121,61 @@ async def analyze_project_structure(directory: str = ".", max_depth: int = 3) ->
         Dictionary with project analysis and structure insights
     """
     directory_path = Path(directory).resolve()
-    
+
     if not directory_path.exists():
         return {"error": f"Directory not found: {directory}"}
-    
+
     # Get file listing using direct function call
     # Extract the underlying function from the tool
     from functools import wraps
-    
+
     # Call the original function before tool decoration
     file_list_result = await _list_project_files_internal(directory, max_depth)
     if "error" in file_list_result:
         return file_list_result
-    
+
     # Convert internal result to expected format
     files_by_extension = file_list_result.get("files_by_extension", {})
     all_files = file_list_result.get("all_files", [])
-    
+
     # Convert to categories format expected by analysis
     files_by_category = {
-        "Python": [f for ext, files in files_by_extension.items() if ext in [".py", ".pyx", ".pyd"] for f in files],
-        "TypeScript/JavaScript": [f for ext, files in files_by_extension.items() if ext in [".ts", ".tsx", ".js", ".jsx"] for f in files],
-        "Configuration": [f for ext, files in files_by_extension.items() if ext in [".json", ".yaml", ".yml", ".toml", ".ini", ".cfg"] for f in files],
-        "Documentation": [f for ext, files in files_by_extension.items() if ext in [".md", ".rst", ".txt"] for f in files],
-        "Styles": [f for ext, files in files_by_extension.items() if ext in [".css", ".scss", ".sass", ".less", ".tcss"] for f in files],
+        "Python": [
+            f
+            for ext, files in files_by_extension.items()
+            if ext in [".py", ".pyx", ".pyd"]
+            for f in files
+        ],
+        "TypeScript/JavaScript": [
+            f
+            for ext, files in files_by_extension.items()
+            if ext in [".ts", ".tsx", ".js", ".jsx"]
+            for f in files
+        ],
+        "Configuration": [
+            f
+            for ext, files in files_by_extension.items()
+            if ext in [".json", ".yaml", ".yml", ".toml", ".ini", ".cfg"]
+            for f in files
+        ],
+        "Documentation": [
+            f
+            for ext, files in files_by_extension.items()
+            if ext in [".md", ".rst", ".txt"]
+            for f in files
+        ],
+        "Styles": [
+            f
+            for ext, files in files_by_extension.items()
+            if ext in [".css", ".scss", ".sass", ".less", ".tcss"]
+            for f in files
+        ],
     }
-    
+
     # Detect project type
     project_type = "Unknown"
     primary_language = "Unknown"
-    
+
     if files_by_category.get("Python"):
         project_type = "Python"
         primary_language = "Python"
@@ -1083,11 +1191,11 @@ async def analyze_project_structure(directory: str = ".", max_depth: int = 3) ->
     elif any(f.endswith(".java") for f in all_files):
         project_type = "Java"
         primary_language = "Java"
-    
+
     # Detect build system and dependency management
     build_system = "Unknown"
     dependency_files = []
-    
+
     config_files = files_by_category.get("Configuration", [])
     for config_file in config_files:
         if config_file == "package.json":
@@ -1109,11 +1217,11 @@ async def analyze_project_structure(directory: str = ".", max_depth: int = 3) ->
         elif config_file == "composer.json":
             build_system = "Composer"
             dependency_files.append("composer.json")
-    
+
     # Detect testing framework
     testing_framework = "Unknown"
     test_files = [f for f in all_files if "test" in f.lower()]
-    
+
     if any("pytest" in f for f in test_files):
         testing_framework = "pytest"
     elif any("unittest" in f for f in test_files):
@@ -1122,14 +1230,14 @@ async def analyze_project_structure(directory: str = ".", max_depth: int = 3) ->
         testing_framework = "Jest"
     elif any("mocha" in f for f in test_files):
         testing_framework = "Mocha"
-    
+
     # Analyze directory structure
     key_directories = set()
     for file_path in all_files:
         parts = file_path.split("/")
         if len(parts) > 1:
             key_directories.add(parts[0])
-    
+
     # Identify common directory patterns
     directory_analysis = {}
     for directory in key_directories:
@@ -1145,19 +1253,28 @@ async def analyze_project_structure(directory: str = ".", max_depth: int = 3) ->
             directory_analysis[directory] = "Configuration"
         else:
             directory_analysis[directory] = "Other"
-    
+
     # Find entry points
     entry_points = []
     entry_point_patterns = [
-        "main.py", "app.py", "server.py", "index.py",
-        "main.js", "app.js", "server.js", "index.js",
-        "main.rs", "lib.rs", "main.go", "main.java"
+        "main.py",
+        "app.py",
+        "server.py",
+        "index.py",
+        "main.js",
+        "app.js",
+        "server.js",
+        "index.js",
+        "main.rs",
+        "lib.rs",
+        "main.go",
+        "main.java",
     ]
-    
+
     for pattern in entry_point_patterns:
         if pattern in all_files:
             entry_points.append(pattern)
-    
+
     return {
         "project_type": project_type,
         "primary_language": primary_language,

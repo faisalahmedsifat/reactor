@@ -7,6 +7,4 @@ try:
 except ImportError:
     PerformanceOptimizer = None
 
-__all__ = [
-    'PerformanceOptimizer'
-]
+__all__ = ["PerformanceOptimizer"]

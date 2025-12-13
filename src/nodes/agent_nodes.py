@@ -9,12 +9,12 @@ from typing import Dict, Any
 from langchain_core.messages import SystemMessage, HumanMessage
 from src.state import ShellAgentState
 from src.tools import (
-    shell_tools, 
-    file_tools, 
-    web_tools, 
-    todo_tools, 
-    grep_and_log_tools, 
-    agent_tools
+    shell_tools,
+    file_tools,
+    web_tools,
+    todo_tools,
+    grep_and_log_tools,
+    agent_tools,
 )
 from src.llm.client import get_llm_client
 from src.prompts import get_prompt, compose_prompt
@@ -57,7 +57,7 @@ async def agent_node(state: ShellAgentState) -> Dict[str, Any]:
         agent_tools.list_available_agents,
         agent_tools.get_agent_result,
         agent_tools.list_running_agents,
-        agent_tools.stop_agent
+        agent_tools.stop_agent,
     ]
 
     # 2. Bind Tools
@@ -86,14 +86,15 @@ async def agent_node(state: ShellAgentState) -> Dict[str, Any]:
     # 4. Inject the Specific Instruction
     # This is crucial: we tell the Agent EXACTLY what the Brain wants done right now.
     current_instruction = state.get("next_step", "Review history and proceed.")
-    
+
     # Handle special instructions
     if current_instruction == "[STOP_AGENT]":
         # Return a final message instead of trying to execute tools
         from langchain_core.messages import AIMessage
+
         updates: Dict[str, Any] = {
             "messages": [AIMessage(content="Task completed successfully.")],
-            "next_step": "[STOP_AGENT]"
+            "next_step": "[STOP_AGENT]",
         }
         if not state.get("system_info"):
             updates["system_info"] = system_info
@@ -108,17 +109,19 @@ async def agent_node(state: ShellAgentState) -> Dict[str, Any]:
     # We include the last 10 messages to provide immediate context (e.g., "I just ran ls, here is the output").
     # This solves the "stuck" issue where the Agent forgets recent tool results.
     # The Brain handles the global history/strategy, but the Hands need local context to act intelligently.
-    
+
     combined_system_content = f"{system_prompt_content}"
-    
+
     context_messages = [SystemMessage(content=combined_system_content)]
-    
+
     # Get last 10 messages for local context
     recent_messages = messages[-10:] if messages else []
     context_messages.extend(recent_messages)
-        
-    context_messages.append(HumanMessage(content=f"Execute this instruction:\n\n{current_instruction}"))
-    
+
+    context_messages.append(
+        HumanMessage(content=f"Execute this instruction:\n\n{current_instruction}")
+    )
+
     # 5. Invoke
     response = await llm_with_tools.ainvoke(context_messages)
 

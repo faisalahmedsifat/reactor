@@ -8,38 +8,49 @@ import time
 import json
 from typing import Dict, List, Any, Optional
 
-from ..core.base_parser import BaseParser, ASTResult, Language, Parameter, Property, Method, Function, Class, Import, Variable
+from ..core.base_parser import (
+    BaseParser,
+    ASTResult,
+    Language,
+    Parameter,
+    Property,
+    Method,
+    Function,
+    Class,
+    Import,
+    Variable,
+)
 
 
 class CppParser(BaseParser):
     """C++ language parser using clang."""
-    
+
     def __init__(self):
         super().__init__()
         self.language = Language.CPP
-        
+
     def get_supported_extensions(self) -> List[str]:
         """Return list of supported file extensions."""
-        return ['.cpp', '.cxx', '.cc', '.c++', '.hpp', '.hxx', '.hh', '.h', '.h++']
-        
+        return [".cpp", ".cxx", ".cc", ".c++", ".hpp", ".hxx", ".hh", ".h", ".h++"]
+
     async def parse_file(self, file_path: str, content: str) -> ASTResult:
         """Parse C++ file and extract AST information."""
         start_time = time.time()
-        
+
         try:
             # Use clang via a temporary C++ program
             ast_data = await asyncio.get_event_loop().run_in_executor(
                 None, self._extract_cpp_ast, file_path, content
             )
-            
+
             # Convert to ASTResult
             functions = self._convert_functions(ast_data.get("functions", []))
             classes = self._convert_classes(ast_data.get("classes", []))
             imports = self._convert_includes(ast_data.get("includes", []))
             variables = self._convert_variables(ast_data.get("variables", []))
-            
+
             parse_time = int((time.time() - start_time) * 1000)
-            
+
             return ASTResult(
                 success=True,
                 language=self.language,
@@ -54,43 +65,47 @@ class CppParser(BaseParser):
                     "typedefs": ast_data.get("typedefs", []),
                     "enums": ast_data.get("enums", []),
                     "unions": ast_data.get("unions", []),
-                    "preprocessor_directives": ast_data.get("preprocessor_directives", [])
+                    "preprocessor_directives": ast_data.get(
+                        "preprocessor_directives", []
+                    ),
                 },
-                parse_time_ms=parse_time
+                parse_time_ms=parse_time,
             )
-            
+
         except Exception as e:
             parse_time = int((time.time() - start_time) * 1000)
             return ASTResult(
                 success=False,
                 language=self.language,
                 error=str(e),
-                parse_time_ms=parse_time
+                parse_time_ms=parse_time,
             )
-    
+
     async def parse_batch(self, file_paths: List[str]) -> List[ASTResult]:
         """Parse multiple files in parallel."""
         tasks = []
         for file_path in file_paths:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     content = f.read()
                 tasks.append(self.parse_file(file_path, content))
             except Exception as e:
+
                 async def error_result():
                     return ASTResult(
                         success=False,
                         language=self.language,
-                        error=f"Cannot read file: {str(e)}"
+                        error=f"Cannot read file: {str(e)}",
                     )
+
                 tasks.append(error_result())
-        
+
         return await asyncio.gather(*tasks)
-    
+
     def _extract_cpp_ast(self, file_path: str, content: str) -> Dict[str, Any]:
         """Extract AST information using clang."""
         # Create a temporary C++ program to parse the file
-        cpp_parser_code = '''
+        cpp_parser_code = """
 #include <clang-c/Index.h>
 #include <iostream>
 #include <string>
@@ -458,10 +473,10 @@ int main(int argc, char* argv[]) {
     std::cout << result.dump(2) << std::endl;
     return 0;
 }
-'''
-        
+"""
+
         # Create CMakeLists.txt for the parser
-        cmake_content = '''
+        cmake_content = """
 cmake_minimum_required(VERSION 3.10)
 project(cpp_ast_parser)
 
@@ -479,132 +494,140 @@ target_link_libraries(cpp_ast_parser ${CLANG_LIBRARIES})
 # Find nlohmann_json
 find_package(nlohmann_json 3.2.0 REQUIRED)
 target_link_libraries(cpp_ast_parser nlohmann_json::nlohmann_json)
-'''
-        
+"""
+
         # Create temporary directory for C++ project
         with tempfile.TemporaryDirectory() as temp_dir:
             # Write CMakeLists.txt
-            with open(os.path.join(temp_dir, 'CMakeLists.txt'), 'w') as f:
+            with open(os.path.join(temp_dir, "CMakeLists.txt"), "w") as f:
                 f.write(cmake_content)
-            
+
             # Write main.cpp
-            with open(os.path.join(temp_dir, 'main.cpp'), 'w') as f:
+            with open(os.path.join(temp_dir, "main.cpp"), "w") as f:
                 f.write(cpp_parser_code)
-            
+
             # Write target C++ file
-            target_file = os.path.join(temp_dir, 'target.cpp')
-            with open(target_file, 'w') as f:
+            target_file = os.path.join(temp_dir, "target.cpp")
+            with open(target_file, "w") as f:
                 f.write(content)
-            
+
             try:
                 # Build the parser
-                build_dir = os.path.join(temp_dir, 'build')
+                build_dir = os.path.join(temp_dir, "build")
                 os.makedirs(build_dir)
-                
+
                 subprocess.run(
-                    ['cmake', '..', '-DCMAKE_BUILD_TYPE=Release'],
+                    ["cmake", "..", "-DCMAKE_BUILD_TYPE=Release"],
                     cwd=build_dir,
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
-                
+
                 subprocess.run(
-                    ['make', '-j4'],
+                    ["make", "-j4"],
                     cwd=build_dir,
                     capture_output=True,
                     text=True,
-                    timeout=120
+                    timeout=120,
                 )
-                
+
                 # Run the parser
-                parser_executable = os.path.join(build_dir, 'cpp_ast_parser')
+                parser_executable = os.path.join(build_dir, "cpp_ast_parser")
                 result = subprocess.run(
                     [parser_executable, target_file],
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
-                
+
                 if result.returncode == 0:
                     return json.loads(result.stdout)
                 else:
                     # Fallback to simpler parsing if clang fails
                     return self._fallback_parse(content)
-                    
+
             except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
                 # Fallback to simpler parsing
                 return self._fallback_parse(content)
-    
+
     def _fallback_parse(self, content: str) -> Dict[str, Any]:
         """Fallback parsing using regex patterns when clang is not available."""
         import re
-        
+
         functions = []
         classes = []
         includes = []
         variables = []
         namespaces = []
-        
-        lines = content.split('\n')
-        
+
+        lines = content.split("\n")
+
         for i, line in enumerate(lines, 1):
             line = line.strip()
-            
+
             # Simple function detection
-            func_match = re.match(r'(?:\w+\s+)*(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:\{|;)', line)
-            if func_match and not line.startswith('//') and not line.startswith('/*'):
+            func_match = re.match(
+                r"(?:\w+\s+)*(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:\{|;)", line
+            )
+            if func_match and not line.startswith("//") and not line.startswith("/*"):
                 func_name = func_match.group(1)
-                if func_name not in ['if', 'while', 'for', 'switch', 'catch']:
-                    functions.append({
-                        "name": func_name,
-                        "return_type": "auto",  # Would need more complex parsing
-                        "line": i,
-                        "is_exported": True,
-                        "is_virtual": "virtual" in line,
-                        "is_static": "static" in line,
-                        "is_inline": "inline" in line,
-                        "is_const": "const" in line,
-                        "is_template": "template" in line,
-                        "parameters": [],
-                        "doc": "",
-                        "attributes": []
-                    })
-            
+                if func_name not in ["if", "while", "for", "switch", "catch"]:
+                    functions.append(
+                        {
+                            "name": func_name,
+                            "return_type": "auto",  # Would need more complex parsing
+                            "line": i,
+                            "is_exported": True,
+                            "is_virtual": "virtual" in line,
+                            "is_static": "static" in line,
+                            "is_inline": "inline" in line,
+                            "is_const": "const" in line,
+                            "is_template": "template" in line,
+                            "parameters": [],
+                            "doc": "",
+                            "attributes": [],
+                        }
+                    )
+
             # Simple class detection
-            class_match = re.match(r'(?:class|struct)\s+(\w+)', line)
+            class_match = re.match(r"(?:class|struct)\s+(\w+)", line)
             if class_match:
                 class_name = class_match.group(1)
-                classes.append({
-                    "name": class_name,
-                    "base_classes": [],
-                    "methods": [],
-                    "fields": [],
-                    "line": i,
-                    "is_exported": True,
-                    "is_template": "template" in line,
-                    "access_specifier": "public",
-                    "doc": "",
-                    "attributes": []
-                })
-            
+                classes.append(
+                    {
+                        "name": class_name,
+                        "base_classes": [],
+                        "methods": [],
+                        "fields": [],
+                        "line": i,
+                        "is_exported": True,
+                        "is_template": "template" in line,
+                        "access_specifier": "public",
+                        "doc": "",
+                        "attributes": [],
+                    }
+                )
+
             # Simple include detection
             include_match = re.match(r'#include\s*[<"]([^>"]+)[>"]', line)
             if include_match:
                 include_file = include_match.group(1)
-                includes.append({
-                    "file": include_file,
-                    "is_system": line.find('<') != -1,
-                    "line": i,
-                    "is_angled": line.find('<') != -1
-                })
-            
+                includes.append(
+                    {
+                        "file": include_file,
+                        "is_system": line.find("<") != -1,
+                        "line": i,
+                        "is_angled": line.find("<") != -1,
+                    }
+                )
+
             # Simple namespace detection
-            namespace_match = re.match(r'namespace\s+(\w+)', line)
+            namespace_match = re.match(r"namespace\s+(\w+)", line)
             if namespace_match:
                 namespace_name = namespace_match.group(1)
                 namespaces.append(namespace_name)
-        
+
         return {
             "functions": functions,
             "classes": classes,
@@ -616,38 +639,42 @@ target_link_libraries(cpp_ast_parser nlohmann_json::nlohmann_json)
             "typedefs": [],
             "enums": [],
             "unions": [],
-            "preprocessor_directives": []
+            "preprocessor_directives": [],
         }
-    
+
     def _convert_functions(self, functions_data: List[Dict]) -> List[Function]:
         """Convert function data to Function objects."""
         functions = []
         for func_data in functions_data:
             parameters = []
             for param_data in func_data.get("parameters", []):
-                parameters.append(Parameter(
-                    name=param_data["name"],
-                    type_hint=param_data["type"],
-                    default_value=None,
-                    is_optional=False,
-                    docstring=None
-                ))
-            
-            functions.append(Function(
-                name=func_data["name"],
-                parameters=parameters,
-                return_type=func_data["return_type"],
-                decorators=func_data.get("attributes", []),
-                docstring=func_data.get("doc", ""),
-                line_number=func_data["line"],
-                complexity_score=1,
-                is_async=False,
-                is_method=False,
-                class_name=None
-            ))
-        
+                parameters.append(
+                    Parameter(
+                        name=param_data["name"],
+                        type_hint=param_data["type"],
+                        default_value=None,
+                        is_optional=False,
+                        docstring=None,
+                    )
+                )
+
+            functions.append(
+                Function(
+                    name=func_data["name"],
+                    parameters=parameters,
+                    return_type=func_data["return_type"],
+                    decorators=func_data.get("attributes", []),
+                    docstring=func_data.get("doc", ""),
+                    line_number=func_data["line"],
+                    complexity_score=1,
+                    is_async=False,
+                    is_method=False,
+                    class_name=None,
+                )
+            )
+
         return functions
-    
+
     def _convert_classes(self, classes_data: List[Dict]) -> List[Class]:
         """Convert class data to Class objects."""
         classes = []
@@ -656,101 +683,113 @@ target_link_libraries(cpp_ast_parser nlohmann_json::nlohmann_json)
             for method_data in class_data.get("methods", []):
                 parameters = []
                 for param_data in method_data.get("parameters", []):
-                    parameters.append(Parameter(
-                        name=param_data["name"],
-                        type_hint=param_data["type"],
-                        default_value=None,
-                        is_optional=False,
-                        docstring=None
-                    ))
-                
-                methods.append(Method(
-                    name=method_data["name"],
-                    parameters=parameters,
-                    return_type=method_data["return_type"],
-                    decorators=method_data.get("attributes", []),
-                    docstring=method_data.get("doc", ""),
-                    line_number=method_data["line"],
-                    access_level=method_data.get("access_specifier", "public"),
-                    is_static=method_data.get("is_static", False),
-                    is_async=False
-                ))
-            
+                    parameters.append(
+                        Parameter(
+                            name=param_data["name"],
+                            type_hint=param_data["type"],
+                            default_value=None,
+                            is_optional=False,
+                            docstring=None,
+                        )
+                    )
+
+                methods.append(
+                    Method(
+                        name=method_data["name"],
+                        parameters=parameters,
+                        return_type=method_data["return_type"],
+                        decorators=method_data.get("attributes", []),
+                        docstring=method_data.get("doc", ""),
+                        line_number=method_data["line"],
+                        access_level=method_data.get("access_specifier", "public"),
+                        is_static=method_data.get("is_static", False),
+                        is_async=False,
+                    )
+                )
+
             properties = []
             for field_data in class_data.get("fields", []):
-                properties.append(Property(
-                    name=field_data["name"],
-                    type_hint=field_data["type"],
+                properties.append(
+                    Property(
+                        name=field_data["name"],
+                        type_hint=field_data["type"],
+                        line_number=class_data["line"],
+                        default_value=None,
+                        access_level="public",  # Would need more analysis
+                        docstring=None,
+                        is_property=True,
+                    )
+                )
+
+            classes.append(
+                Class(
+                    name=class_data["name"],
+                    base_classes=class_data.get("base_classes", []),
+                    methods=methods,
+                    properties=properties,
+                    decorators=class_data.get("attributes", []),
+                    docstring=class_data.get("doc", ""),
                     line_number=class_data["line"],
-                    default_value=None,
-                    access_level="public",  # Would need more analysis
-                    docstring=None,
-                    is_property=True
-                ))
-            
-            classes.append(Class(
-                name=class_data["name"],
-                base_classes=class_data.get("base_classes", []),
-                methods=methods,
-                properties=properties,
-                decorators=class_data.get("attributes", []),
-                docstring=class_data.get("doc", ""),
-                line_number=class_data["line"],
-                is_abstract=False,  # Would need more analysis
-                access_level=class_data.get("access_specifier", "public")
-            ))
-        
+                    is_abstract=False,  # Would need more analysis
+                    access_level=class_data.get("access_specifier", "public"),
+                )
+            )
+
         return classes
-    
+
     def _convert_includes(self, includes_data: List[Dict]) -> List[Import]:
         """Convert include data to Import objects."""
         imports = []
         for include_data in includes_data:
-            imports.append(Import(
-                module=include_data["file"],
-                name="",
-                alias="",
-                line_number=include_data["line"],
-                import_type="include",
-                is_relative=not include_data.get("is_system", False),
-                is_standard_library=include_data.get("is_system", False)
-            ))
-        
+            imports.append(
+                Import(
+                    module=include_data["file"],
+                    name="",
+                    alias="",
+                    line_number=include_data["line"],
+                    import_type="include",
+                    is_relative=not include_data.get("is_system", False),
+                    is_standard_library=include_data.get("is_system", False),
+                )
+            )
+
         return imports
-    
+
     def _convert_variables(self, variables_data: List[Dict]) -> List[Variable]:
         """Convert variable data to Variable objects."""
         variables = []
         for var_data in variables_data:
-            variables.append(Variable(
-                name=var_data["name"],
-                type_hint=var_data["type"],
-                default_value=var_data.get("value", ""),
-                line_number=var_data["line"],
-                is_global=True,
-                is_constant=var_data.get("is_const", False)
-            ))
-        
+            variables.append(
+                Variable(
+                    name=var_data["name"],
+                    type_hint=var_data["type"],
+                    default_value=var_data.get("value", ""),
+                    line_number=var_data["line"],
+                    is_global=True,
+                    is_constant=var_data.get("is_const", False),
+                )
+            )
+
         return variables
-    
+
     def extract_functions(self, ast_root: Any) -> List[Function]:
         """Extract function definitions from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.functions or []
         return []
-    
+
     def extract_classes(self, ast_root: Any) -> List[Class]:
         """Extract class definitions from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.classes or []
         return []
-    
+
     def extract_imports(self, ast_root: Any) -> List[Import]:
         """Extract import statements from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.imports or []
         return []
-    
+
     def extract_variables(self, ast_root: Any) -> List[Variable]:
         """Extract variable definitions from AST."""
         if isinstance(ast_root, ASTResult):

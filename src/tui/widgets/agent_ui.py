@@ -285,49 +285,98 @@ class InteractiveShellPanel(Vertical):
     _poll_timer: Optional[object] = None
     current_log_path: Optional[str] = None
     session_id: Optional[str] = None
-    log_file_pos: int = 0  # Track file read position
+    log_file_pos: int = 0
+
+    # Bindings for keyboard shortcuts
+    BINDINGS = [
+        Binding("ctrl+k", "kill_session", "Kill Session", priority=True),
+    ]
 
     class ShellInputSubmitted(Message):
         """Posted when user submits input to the shell"""
+
         def __init__(self, session_id: str, value: str):
             self.session_id = session_id
             self.value = value
             super().__init__()
 
+    class KillShellSession(Message):
+        """Posted when user requests to kill the current session"""
+
+        def __init__(self, session_id: str):
+            self.session_id = session_id
+            super().__init__()
+
+    class SessionSelected(Message):
+        """Posted when user selects a different session"""
+
+        def __init__(self, session_id: str):
+            self.session_id = session_id
+            super().__init__()
+
     def compose(self) -> ComposeResult:
         yield Label("Interactive Shell", classes="panel-header")
-        # Use RichLog for terminal-like display with ANSI support
         yield RichLog(
             id="shell-output-log",
             classes="cyber-textarea",
             highlight=False,
-            markup=False, # We use Text.from_ansi
-            wrap=True
+            markup=False,
+            wrap=True,
         )
-        yield Input(placeholder="Type command...", id="shell-input", classes="shell-input")
+        yield Input(
+            placeholder="Type command...", id="shell-input", classes="shell-input"
+        )
         with Horizontal(classes="panel-footer"):
-            yield Label("", id="shell-status", classes="shell-status-label")
+            # Use Select for session management instead of static label
+            from textual.widgets import Select
+
+            yield Select(
+                [],
+                prompt="No Active Sessions",
+                id="session-select",
+                classes="session-select",
+                allow_blank=True,
+            )
+            # Add explicit Kill button next to Copy
+            yield Button(
+                "💀 Kill (Ctrl+K)",
+                id="kill-shell-btn",
+                variant="error",
+                classes="kill-btn",
+            )
             yield Button("📋 Copy", id="copy-shell-btn", variant="default")
 
     def start_monitoring(self, session_id: str, log_path: str) -> None:
         """Start monitoring a specific session log."""
         self.session_id = session_id
         self.current_log_path = log_path
-        self.log_file_pos = 0 # Reset position
-        
+        self.log_file_pos = 0
+
         rich_log = self.query_one("#shell-output-log", RichLog)
         rich_log.clear()
-        rich_log.write(f"--- Attached to Session {session_id} ---\nWaiting for output...")
-        
-        status_label = self.query_one("#shell-status", Label)
-        status_label.update(f"ACTIVE: {session_id}")
-        
+        rich_log.write(
+            f"--- Attached to Session {session_id} ---\nWaiting for output..."
+        )
+
+        # Update select
+        from textual.widgets import Select
+
+        select = self.query_one("#session-select", Select)
+        # We might need to fetch all sessions from app, but for now ensure current is selected
+        # If the option doesn't exist, simple-hack add it
+        current_options = [x[0] for x in select.options] if select.options else []
+        if session_id not in current_options:
+            # This is a bit hacky, normally app should drive the list
+            pass
+        select.value = session_id
+        select.prompt = f"ACTIVE: {session_id}"
+
         # Enable input
         shell_input = self.query_one("#shell-input", Input)
         shell_input.disabled = False
         shell_input.value = ""
         shell_input.focus()
-        
+
         self.remove_class("-hidden")
         self.styles.display = "block"
 
@@ -336,17 +385,28 @@ class InteractiveShellPanel(Vertical):
 
     def stop_monitoring(self) -> None:
         """Stop monitoring."""
-        status_label = self.query_one("#shell-status", Label)
-        status_label.update(f"CLOSED: {self.session_id}")
-        
+        from textual.widgets import Select
+
+        select = self.query_one("#session-select", Select)
+        select.prompt = f"CLOSED: {self.session_id}"
+        select.value = None
+
         # Disable input
         shell_input = self.query_one("#shell-input", Input)
         shell_input.disabled = True
-        
+
         self.current_log_path = None
         self.session_id = None
-        # Don't strictly hide it immediately so user can read final output?
-        # self.add_class("-hidden") 
+
+    def update_session_list(self, sessions: List[str], active_id: Optional[str] = None):
+        """Update the dropdown of active sessions"""
+        from textual.widgets import Select
+
+        select = self.query_one("#session-select", Select)
+        options = [(s, s) for s in sessions]
+        select.set_options(options)
+        if active_id:
+            select.value = active_id
 
     def _poll_log(self) -> None:
         """Read the live log file incrementally and update display."""
@@ -357,41 +417,53 @@ class InteractiveShellPanel(Vertical):
             log_path = Path(self.current_log_path)
             if not log_path.exists():
                 return
-                
+
             with open(log_path, "rb") as f:
                 f.seek(self.log_file_pos)
                 new_data = f.read()
-                
+
                 if new_data:
                     self.log_file_pos = f.tell()
-                    # Decode with replace to handle partial/bad bytes
                     text_content = new_data.decode("utf-8", errors="replace")
-                    
-                    # Convert ANSI to Rich Text
                     rich_text = Text.from_ansi(text_content)
-                    
+
                     rich_log = self.query_one("#shell-output-log", RichLog)
                     rich_log.write(rich_text)
         except Exception:
             pass
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        """Handle shell input submission"""
         if event.input.id == "shell-input":
             if self.session_id and event.value:
-                self.post_message(self.ShellInputSubmitted(self.session_id, event.value))
-                event.input.value = "" # Clear input
+                self.post_message(
+                    self.ShellInputSubmitted(self.session_id, event.value)
+                )
+                event.input.value = ""
+
+    def action_kill_session(self) -> None:
+        """Handle kill session action (Ctrl+K)"""
+        if self.session_id:
+            self.post_message(self.KillShellSession(self.session_id))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "copy-shell-btn":
-            # For RichLog, copying is harder as it's a list of renderables.
-            # We can try to get lines as text.
+            # Copy implementation...
             try:
-                # Textual RichLog doesn't expose easy plain text export yet?
-                # We'll just notify for now or try to reconstruct.
-                self.notify("Copy not fully supported on RichLog yet.", severity="warning")
+                self.notify(
+                    "Copy not fully supported on RichLog yet.", severity="warning"
+                )
             except Exception:
                 pass
+        elif event.button.id == "kill-shell-btn":
+            self.action_kill_session()
+
+    def on_select_changed(self, event) -> None:
+        """Handle session switch"""
+        from textual.widgets import Select
+
+        if event.control.id == "session-select":
+            if event.value and event.value != self.session_id:
+                self.post_message(self.SessionSelected(event.value))
 
 
 class StateIndicator(Static):

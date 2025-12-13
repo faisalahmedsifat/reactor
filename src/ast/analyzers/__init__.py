@@ -17,8 +17,4 @@ try:
 except ImportError:
     ArchitectureAnalyzer = None
 
-__all__ = [
-    'SecurityAnalyzer',
-    'CodeQualityAnalyzer', 
-    'ArchitectureAnalyzer'
-]
+__all__ = ["SecurityAnalyzer", "CodeQualityAnalyzer", "ArchitectureAnalyzer"]

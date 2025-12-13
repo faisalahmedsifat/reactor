@@ -1,3 +1,8 @@
+import pty
+import os
+import fcntl
+import struct
+import termios
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -6,6 +11,7 @@ import asyncio
 import platform
 from pathlib import Path
 import time
+import signal
 
 
 # Tool 3: Validate Safety
@@ -319,14 +325,19 @@ def check_path_exists(path: str) -> Dict[str, Any]:
 
 # --- Interactive Shell Session Manager ---
 
+
 class ShellSession:
-    def __init__(self, session_id: str, process, log_path: Path):
+    def __init__(
+        self, session_id: str, process, log_path: Path, master_fd: Optional[int] = None
+    ):
         self.session_id = session_id
         self.process = process
         self.log_path = log_path
+        self.master_fd = master_fd  # PTY Master FD (POSIX only)
         self.created_at = time.time()
-        self.buffer = []  # In-memory buffer of recent output
         self.is_active = True
+        self.writer_task = None
+
 
 class ShellSessionManager:
     _instance = None
@@ -338,8 +349,12 @@ class ShellSessionManager:
             cls._instance = cls()
         return cls._instance
 
-    def create_session(self, session_id: str, process, log_path: Path):
-        self._sessions[session_id] = ShellSession(session_id, process, log_path)
+    def create_session(
+        self, session_id: str, process, log_path: Path, master_fd: Optional[int] = None
+    ):
+        self._sessions[session_id] = ShellSession(
+            session_id, process, log_path, master_fd
+        )
 
     def get_session(self, session_id: str) -> Optional[ShellSession]:
         return self._sessions.get(session_id)
@@ -353,10 +368,11 @@ class ShellSessionManager:
             {
                 "id": s.session_id,
                 "active": s.is_active,
-                "uptime": time.time() - s.created_at
+                "uptime": time.time() - s.created_at,
             }
             for s in self._sessions.values()
         ]
+
 
 # Tool 8: Run Interactive Command
 @tool
@@ -364,66 +380,132 @@ async def run_interactive_command(
     command: str, working_directory: str = ".", timeout: int = 300
 ) -> Dict[str, Any]:
     """
-    Start a persistent interactive shell command (bg process).
-    
+    Start a persistent interactive shell command (bg process) with PTY support.
+
     Use this for commands that require user input or run for a long time (REPLs, servers).
     Returns a session_id that you MUST use with `send_shell_input` and `terminate_shell_session`.
     """
     import uuid
     import tempfile
-    
+
     session_id = str(uuid.uuid4())[:8]
     manager = ShellSessionManager.get_instance()
-    
+
     cwd = str(Path(working_directory).expanduser())
     live_log_path = Path(tempfile.gettempdir()) / f"reactor_session_{session_id}.log"
-    
+
     # Initialize log
     with open(live_log_path, "w", encoding="utf-8") as f:
-        f.write(f"--- Interactive Session {session_id} ---\nCommand: {command}\nCWD: {cwd}\n\n")
+        f.write(
+            f"--- Interactive Session {session_id} ---\nCommand: {command}\nCWD: {cwd}\n\n"
+        )
 
     try:
-        # Prepare environment with TERM to encourage color output
-        import os
-        env = os.environ.copy()
-        env["TERM"] = "xterm-256color"
-        env["PS1"] = r"\u@\h:\w$ " # Force prompt if possible
-        
-        # Start subprocess with pipes
-        process = await asyncio.create_subprocess_shell(
-            command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-            env=env
-        )
-        
-        manager.create_session(session_id, process, live_log_path)
-        
-        # Start background reader tasks
-        asyncio.create_task(_stream_output(session_id, process.stdout, "stdout"))
-        asyncio.create_task(_stream_output(session_id, process.stderr, "stderr"))
-        
+        # Detect OS
+        system = platform.system().lower()
+        use_pty = system != "windows"
+
+        master_fd = None
+        process = None
+
+        if use_pty:
+            # POSIX PTY Setup
+            master_fd, slave_fd = pty.openpty()
+
+            # Set raw mode to prevent local echo double-printing if possible,
+            # but usually default is fine for basic automation.
+            # We trust the shell tool to handle output.
+
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdin=slave_fd,
+                stdout=slave_fd,
+                stderr=slave_fd,
+                cwd=cwd,
+                preexec_fn=os.setsid,  # Create new session
+            )
+            os.close(slave_fd)  # Close slave in parent
+
+            manager.create_session(session_id, process, live_log_path, master_fd)
+
+            # Start background reader for PTY master
+            # We use a StreamReader connected to the master_fd
+            loop = asyncio.get_running_loop()
+            reader = asyncio.StreamReader()
+            protocol = asyncio.StreamReaderProtocol(reader)
+            await loop.connect_read_pipe(
+                lambda: protocol, os.fdopen(master_fd, "rb", buffering=0)
+            )
+
+            asyncio.create_task(_stream_pty_output(session_id, reader))
+
+        else:
+            # Windows/Fallback Implementation (Pipe based)
+            # Prepare environment with TERM
+            env = os.environ.copy()
+            env["TERM"] = "xterm-256color"
+
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+                env=env,
+            )
+
+            manager.create_session(session_id, process, live_log_path)
+
+            asyncio.create_task(_stream_output(session_id, process.stdout, "stdout"))
+            asyncio.create_task(_stream_output(session_id, process.stderr, "stderr"))
+
         # Wait a bit to capture initial output
         await asyncio.sleep(0.5)
-        
-        # Read what we have so far
+
         initial_output = _read_session_log(live_log_path)
-        
+
         return {
             "success": True,
             "session_id": session_id,
             "status": "running",
             "initial_output": initial_output,
-            "log_file": str(live_log_path)
+            "log_file": str(live_log_path),
         }
-        
+
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
+async def _stream_pty_output(session_id: str, reader: asyncio.StreamReader):
+    """Read from PTY master and write to log"""
+    manager = ShellSessionManager.get_instance()
+    session = manager.get_session(session_id)
+    if not session:
+        return
+
+    try:
+        while True:
+            # Read roughly standard chunk size
+            data = await reader.read(1024)
+            if not data:
+                break
+
+            # Decode mechanism
+            decoded = data.decode(errors="replace")
+
+            # Fix newlines: PTY often output \r\n, but sometimes just \n or \r.
+            # We write as-is to log, RichLog handles ANSI control codes including cursor movements.
+
+            with open(session.log_path, "a", encoding="utf-8") as f:
+                f.write(decoded)
+    except Exception:
+        pass
+    finally:
+        session.is_active = False
+
+
 async def _stream_output(session_id: str, stream, stream_name: str):
-    """Background task to stream output to file and buffer"""
+    """Background task to stream output from PIPES (Windows fallback)"""
     manager = ShellSessionManager.get_instance()
     session = manager.get_session(session_id)
     if not session:
@@ -433,21 +515,16 @@ async def _stream_output(session_id: str, stream, stream_name: str):
         line = await stream.readline()
         if not line:
             break
-            
+
         decoded = line.decode(errors="replace")
-        
-        # Write to file
         try:
             with open(session.log_path, "a", encoding="utf-8") as f:
                 f.write(decoded)
         except:
             pass
-            
-        # Add to memory buffer (keep last 100 lines?)
-        # For now just strictly appending to file is safest for generic logs.
 
-    # Mark as inactive if stream ends (process likely died)
     session.is_active = False
+
 
 def _read_session_log(path: Path, max_chars: int = 2000) -> str:
     if not path.exists():
@@ -460,47 +537,58 @@ def _read_session_log(path: Path, max_chars: int = 2000) -> str:
     except:
         return ""
 
+
 # Tool 9: Send Shell Input
 @tool
-async def send_shell_input(session_id: str, input_text: str, wait_ms: int = 1000) -> Dict[str, Any]:
+async def send_shell_input(
+    session_id: str, input_text: str, wait_ms: int = 1000
+) -> Dict[str, Any]:
     """
-    Send text input to a running interactive session (stdin).
-    Use this to answer prompts (y/n, names, passwords, etc.).
-    Add \\n at the end of input_text to simulate Enter key!
+    Send text input to a running interactive session.
+    Automatically adds newline if not present? No, we trust the caller (prompt says explicit).
+    Actually, to be user-friendly, maybe we don't force explicit \n for simple tools usage,
+    but for `send_shell_input` raw power, explicit is better.
+    However, prompt instructions say "Add \n".
     """
     manager = ShellSessionManager.get_instance()
     session = manager.get_session(session_id)
-    
+
     if not session:
         return {"error": f"Session {session_id} not found or inactive"}
-        
+
+    # Check process status logic
+    # Default is running if returncode is None
     if session.process.returncode is not None:
-        return {"error": f"Session {session_id} process has already exited with code {session.process.returncode}"}
+        return {"error": f"Process exited with {session.process.returncode}"}
 
     try:
-        # Send input
         input_bytes = input_text.encode(errors="replace")
-        session.process.stdin.write(input_bytes)
-        await session.process.stdin.drain()
-        
-        # Append input to log for visibility
-        with open(session.log_path, "a", encoding="utf-8") as f:
-            f.write(f"[INPUT]: {input_text}")
 
-        # Wait for reaction
+        if session.master_fd is not None:
+            # PTY Write
+            os.write(session.master_fd, input_bytes)
+            # No need to drain for os.write to FD
+        else:
+            # Pipe Write
+            session.process.stdin.write(input_bytes)
+            await session.process.stdin.drain()
+
+        # Log input (optional, sometimes duplicates echo)
+        # In PTY mode, the terminal echoes it back usually.
+        # So we might NOT want to write input to log manually to avoid double characters.
+        # But for visibility of "Command sent", we can use a special marker.
+        # with open(session.log_path, "a", encoding="utf-8") as f:
+        #    f.write(f"[INPUT SENT]: {input_text}")
+
         await asyncio.sleep(wait_ms / 1000.0)
-        
-        # Read latest output
+
         current_log = _read_session_log(session.log_path)
-        
-        return {
-            "success": True,
-            "latest_output": current_log,
-            "status": "running" if session.process.returncode is None else "exited"
-        }
-        
+
+        return {"success": True, "latest_output": current_log, "status": "running"}
+
     except Exception as e:
         return {"error": f"Failed to send input: {str(e)}"}
+
 
 # Tool 10: Get Shell Output
 @tool
@@ -508,18 +596,15 @@ async def get_shell_session_output(session_id: str) -> Dict[str, Any]:
     """Get the latest output from a running session without sending input."""
     manager = ShellSessionManager.get_instance()
     session = manager.get_session(session_id)
-    
+
     if not session:
         return {"error": f"Session {session_id} not found"}
-        
+
     output = _read_session_log(session.log_path)
     is_running = session.process.returncode is None
-    
-    return {
-        "session_id": session_id,
-        "is_running": is_running,
-        "output": output
-    }
+
+    return {"session_id": session_id, "is_running": is_running, "output": output}
+
 
 # Tool 11: Terminate Session
 @tool
@@ -527,22 +612,28 @@ async def terminate_shell_session(session_id: str) -> Dict[str, Any]:
     """Terminate (kill) a running interactive shell session."""
     manager = ShellSessionManager.get_instance()
     session = manager.get_session(session_id)
-    
+
     if not session:
         return {"error": f"Session {session_id} not found"}
-        
+
     try:
+        # Kill logic
         if session.process.returncode is None:
             session.process.terminate()
             try:
                 await asyncio.wait_for(session.process.wait(), timeout=2.0)
             except asyncio.TimeoutError:
                 session.process.kill()
-                
+
+        # Cleanup PTY
+        if session.master_fd is not None:
+            try:
+                os.close(session.master_fd)
+            except:
+                pass
+
         manager.remove_session(session_id)
-        
-        # Cleanup log? Maybe keep it for history.
-        
+
         return {"success": True, "message": f"Session {session_id} terminated"}
     except Exception as e:
         return {"error": f"Failed to terminate: {str(e)}"}

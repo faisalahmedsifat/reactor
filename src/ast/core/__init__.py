@@ -11,12 +11,12 @@ from .language_detector import LanguageDetector
 
 __all__ = [
     "BaseParser",
-    "Language", 
+    "Language",
     "ASTResult",
     "ASTManager",
     "ASTNode",
     "Function",
-    "Class", 
+    "Class",
     "Import",
     "Variable",
     "LanguageDetector",

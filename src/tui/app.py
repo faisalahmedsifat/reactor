@@ -524,19 +524,86 @@ class ShellAgentTUI(App):
         """Handle input from interactive shell panel"""
         session_id = event.session_id
         value = event.value
-        
+
         dashboard = self.query_one(AgentDashboard)
         log_viewer = dashboard.query_one("#log-viewer")
-        
+
         from src.tools.shell_tools import send_shell_input
-        
+
         # Execute the tool
         try:
-             # Append newline as usually expected in terminals
-             await send_shell_input.ainvoke({"session_id": session_id, "input_text": value + "\n", "wait_ms": 500})
+            # Append newline as usually expected in terminals
+            await send_shell_input.ainvoke(
+                {"session_id": session_id, "input_text": value + "\n", "wait_ms": 500}
+            )
         except Exception as e:
-             self.logger.error(f"Failed to send input: {e}")
-             log_viewer.add_log(f"❌ Failed to send input: {e}", "error")
+            self.logger.error(f"Failed to send input: {e}")
+            log_viewer.add_log(f"❌ Failed to send input: {e}", "error")
+
+    async def on_interactive_shell_panel_kill_shell_session(
+        self, event: InteractiveShellPanel.KillShellSession
+    ) -> None:
+        """Handle kill session request"""
+        session_id = event.session_id
+        dashboard = self.query_one(AgentDashboard)
+        log_viewer = dashboard.query_one("#log-viewer")
+
+        from src.tools.shell_tools import terminate_shell_session
+
+        try:
+            result = await terminate_shell_session.ainvoke({"session_id": session_id})
+            if result.get("success"):
+                self.notify(f"Session {session_id} terminated", title="Success")
+                log_viewer.add_log(
+                    f"💀 Terminated interactive session: {session_id}", "info"
+                )
+                # Stop monitoring will happen via tool result handler or explicit here
+                self.query_one(InteractiveShellPanel).stop_monitoring()
+                self._update_shell_sessions_ui()
+            else:
+                error = result.get("error", "Unknown error")
+                self.notify(f"Failed to terminate: {error}", severity="error")
+        except Exception as e:
+            self.logger.error(f"Failed to kill session: {e}")
+            self.notify(f"Error killing session: {e}", severity="error")
+
+    async def on_interactive_shell_panel_session_selected(
+        self, event: InteractiveShellPanel.SessionSelected
+    ) -> None:
+        """Handle session switching"""
+        session_id = event.session_id
+        if not session_id:
+            return
+
+        from src.tools.shell_tools import ShellSessionManager
+
+        manager = ShellSessionManager.get_instance()
+        session = manager.get_session(session_id)
+
+        if session:
+            # Switch to this session
+            self.query_one(InteractiveShellPanel).start_monitoring(
+                session_id, str(session.log_path)
+            )
+            self.notify(f"Switched to session {session_id}")
+        else:
+            self.notify(f"Session {session_id} not found", severity="error")
+
+    def _update_shell_sessions_ui(self) -> None:
+        """Update the list of active sessions in the UI"""
+        try:
+            from src.tools.shell_tools import ShellSessionManager
+
+            manager = ShellSessionManager.get_instance()
+            sessions = manager.list_sessions()
+            active_ids = [s["id"] for s in sessions if s["active"]]
+
+            panel = self.query_one(InteractiveShellPanel)
+            current = panel.session_id
+
+            panel.update_session_list(active_ids, active_id=current)
+        except Exception as e:
+            self.logger.error(f"Failed to update session list: {e}")
 
     async def on_agent_message(self, agent_id: str, event_type: str, data) -> None:
         """Unified event handler for all agent events with enhanced feedback"""
@@ -568,37 +635,49 @@ class ShellAgentTUI(App):
                     try:
                         import tempfile
                         from pathlib import Path
-                        log_path = str(Path(tempfile.gettempdir()) / "reactor_live_output.log")
-                        self.query_one(InteractiveShellPanel).start_monitoring("CMD_EXEC", log_path)
+
+                        log_path = str(
+                            Path(tempfile.gettempdir()) / "reactor_live_output.log"
+                        )
+                        # Only show live output if we aren't already monitoring a persistent session
+                        panel = self.query_one(InteractiveShellPanel)
+                        if not panel.session_id or panel.session_id == "CMD_EXEC":
+                            panel.start_monitoring("CMD_EXEC", log_path)
                     except Exception as e:
                         self.logger.error(f"Failed to start live monitoring: {e}")
-                
+
                 elif tool_name == "search_in_files":
                     pattern = args.get("pattern", "unknown")
                     directory = args.get("directory", ".")
-                    log_viewer.add_log(f"🔍 Searching: \"{pattern}\" in `{directory}`", "info")
-                
+                    log_viewer.add_log(
+                        f'🔍 Searching: "{pattern}" in `{directory}`', "info"
+                    )
+
                 elif tool_name == "search_web":
                     query = args.get("query", "unknown")
-                    log_viewer.add_log(f"🌐 Web Search: \"{query}\"", "info")
-                
+                    log_viewer.add_log(f'🌐 Web Search: "{query}"', "info")
+
                 elif tool_name == "read_url_content":
                     url = args.get("url", "unknown")
                     log_viewer.add_log(f"🔗 Reading: {url}", "info")
-                
+
                 elif tool_name == "spawn_agent":
                     agent_name = args.get("name", "unknown")
                     task = args.get("task", "unknown")
-                    log_viewer.add_log(f"🤖 Spawning Agent: **{agent_name}**\nTask: {task}", "info")
+                    log_viewer.add_log(
+                        f"🤖 Spawning Agent: **{agent_name}**\nTask: {task}", "info"
+                    )
 
                 elif tool_name == "write_file":
                     fpath = args.get("target_file", "unknown")
                     mode = args.get("mode", "create")
                     basename = fpath.split("/")[-1]
                     if mode == "write":
-                       log_viewer.add_log(f"⚠️ Overwriting File: `{basename}`", "warning")
+                        log_viewer.add_log(
+                            f"⚠️ Overwriting File: `{basename}`", "warning"
+                        )
                     else:
-                       log_viewer.add_log(f"📝 Writing File: `{basename}`", "info")
+                        log_viewer.add_log(f"📝 Writing File: `{basename}`", "info")
 
                 elif tool_name in ["modify_file", "read_file_content"]:
                     fpath = (
@@ -606,7 +685,7 @@ class ShellAgentTUI(App):
                     )
                     basename = fpath.split("/")[-1] if fpath else "unknown"
                     log_viewer.add_log(f"🛠️ File Op ({tool_name}): `{basename}`", "info")
-                
+
                 else:
                     log_viewer.add_log(f"🛠️ Using tool: {tool_name}", "info")
 
@@ -640,21 +719,26 @@ class ShellAgentTUI(App):
                         self.execution_results.append(exec_result)
                     except Exception as e:
                         self.logger.error(f"Failed to update results: {e}")
-                
+
                 elif tool_name == "run_interactive_command" and not is_error:
                     session_id = result.get("session_id")
                     log_file = result.get("log_file")
                     if session_id and log_file:
                         try:
-                            self.query_one(InteractiveShellPanel).start_monitoring(session_id, log_file)
+                            self._update_shell_sessions_ui()  # 1. Refresh list so ID exists in options
+                            self.query_one(InteractiveShellPanel).start_monitoring(
+                                session_id, log_file
+                            )  # 2. Select it
+                            self.notify(f"Attached to new session: {session_id}")
                         except Exception as e:
                             self.logger.error(f"Failed to attach panel: {e}")
 
                 elif tool_name == "terminate_shell_session" and not is_error:
                     try:
                         self.query_one(InteractiveShellPanel).stop_monitoring()
+                        self._update_shell_sessions_ui()  # Refresh list
                     except Exception as e:
-                         self.logger.error(f"Failed to stop monitoring: {e}")
+                        self.logger.error(f"Failed to stop monitoring: {e}")
 
                 elif tool_name in [
                     "create_todo",
@@ -664,6 +748,7 @@ class ShellAgentTUI(App):
                 ]:
                     try:
                         from src.tools.todo_tools import get_todos_for_ui
+
                         todos = get_todos_for_ui()
                         self.query_one(TODOPanel).update_todos(todos)
                         if not is_error:
@@ -671,15 +756,33 @@ class ShellAgentTUI(App):
                     except Exception as e:
                         self.logger.error(f"Failed to update TODOPanel: {e}")
 
+                # --- Auto-Refresh File Tree ---
+                if tool_name in [
+                    "write_to_file",
+                    "replace_file_content",
+                    "multi_replace_file_content",
+                    "execute_shell_command",
+                    "run_interactive_command",
+                ]:
+                    try:
+                        self.query_one(FileExplorer).reload()
+                    except Exception as e:
+                        self.logger.debug(f"Failed to refresh file tree: {e}")
+
                 # --- Search Feedback ---
                 elif tool_name == "search_in_files" and not is_error:
                     matches = result.get("matches_found", 0)
                     files = result.get("files_searched", 0)
                     query = result.get("pattern", "unknown")
                     if matches == 0:
-                         log_viewer.add_log(f"🔍 No matches found for \"{query}\" (scanned {files} files)", "warning")
+                        log_viewer.add_log(
+                            f'🔍 No matches found for "{query}" (scanned {files} files)',
+                            "warning",
+                        )
                     else:
-                         log_viewer.add_log(f"✅ Found {matches} matches for \"{query}\"", "info")
+                        log_viewer.add_log(
+                            f'✅ Found {matches} matches for "{query}"', "info"
+                        )
 
                 elif tool_name == "read_url_content" and not is_error:
                     title = result.get("title", "No Title")
@@ -689,7 +792,9 @@ class ShellAgentTUI(App):
                 elif tool_name == "spawn_agent" and not is_error:
                     agent_id = result.get("agent_id", "unknown")
                     status = result.get("status", "unknown")
-                    log_viewer.add_log(f"✅ Agent spawned ({status}). ID: `{agent_id}`", "info")
+                    log_viewer.add_log(
+                        f"✅ Agent spawned ({status}). ID: `{agent_id}`", "info"
+                    )
 
                 # --- File Operations Feedback ---
                 elif tool_name == "write_file" and not is_error:
@@ -709,7 +814,7 @@ class ShellAgentTUI(App):
                         f"📝 {op.capitalize()}: {basename} ({lines} lines written){diff_str}",
                         "info",
                     )
-                    
+
                     if "diff_text" in diff and diff["diff_text"]:
                         log_viewer.add_log(f"```diff\n{diff['diff_text']}\n```", "info")
 
@@ -785,7 +890,7 @@ class ShellAgentTUI(App):
                     "search_in_files",
                     "read_url_content",
                     "spawn_agent",
-                    "search_web"
+                    "search_web",
                 ]:
                     # Generic success for other tools
                     log_viewer.add_log(f"✅ Tool '{tool_name}' completed", "info")

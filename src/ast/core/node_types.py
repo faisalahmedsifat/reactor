@@ -9,6 +9,7 @@ from enum import Enum
 
 class NodeType(Enum):
     """Universal AST node types"""
+
     FUNCTION = "function"
     CLASS = "class"
     INTERFACE = "interface"
@@ -30,7 +31,7 @@ class NodeType(Enum):
 
 class ASTNode:
     """Base AST node with universal properties"""
-    
+
     def __init__(self, node_type: str, name: str, line_number: int, column: int = 0):
         self.node_type = node_type
         self.name = name
@@ -38,15 +39,15 @@ class ASTNode:
         self.column = column
         self.children = []
         self.metadata = {}
-    
-    def add_child(self, child: 'ASTNode') -> None:
+
+    def add_child(self, child: "ASTNode") -> None:
         """Add a child node"""
         self.children.append(child)
-    
+
     def get_metadata(self, key: str, default: Any = None) -> Any:
         """Get metadata value"""
         return self.metadata.get(key, default)
-    
+
     def set_metadata(self, key: str, value: Any) -> None:
         """Set metadata value"""
         self.metadata[key] = value
@@ -54,7 +55,7 @@ class ASTNode:
 
 class Function(ASTNode):
     """Function definition node"""
-    
+
     def __init__(self, name: str, line_number: int, **kwargs):
         super().__init__(NodeType.FUNCTION.value, name, line_number, **kwargs)
         self.parameters = []
@@ -71,7 +72,7 @@ class Function(ASTNode):
 
 class Parameter(ASTNode):
     """Function parameter node"""
-    
+
     def __init__(self, name: str, line_number: int, **kwargs):
         super().__init__(NodeType.PARAMETER.value, name, line_number, **kwargs)
         self.param_type = ""
@@ -82,7 +83,7 @@ class Parameter(ASTNode):
 
 class Class(ASTNode):
     """Class/interface definition node"""
-    
+
     def __init__(self, name: str, line_number: int, **kwargs):
         super().__init__(NodeType.CLASS.value, name, line_number, **kwargs)
         self.methods = []
@@ -99,7 +100,7 @@ class Class(ASTNode):
 
 class Property(ASTNode):
     """Class property/attribute node"""
-    
+
     def __init__(self, name: str, line_number: int, **kwargs):
         super().__init__(NodeType.PROPERTY.value, name, line_number, **kwargs)
         self.property_type = ""
@@ -111,7 +112,7 @@ class Property(ASTNode):
 
 class Import(ASTNode):
     """Import statement node"""
-    
+
     def __init__(self, name: str, line_number: int, **kwargs):
         super().__init__(NodeType.IMPORT.value, name, line_number, **kwargs)
         self.module = ""
@@ -124,7 +125,7 @@ class Import(ASTNode):
 
 class Variable(ASTNode):
     """Variable definition node"""
-    
+
     def __init__(self, name: str, line_number: int, **kwargs):
         super().__init__(NodeType.VARIABLE.value, name, line_number, **kwargs)
         self.variable_type = ""
@@ -137,7 +138,7 @@ class Variable(ASTNode):
 
 class Type(ASTNode):
     """Type definition node"""
-    
+
     def __init__(self, name: str, line_number: int, **kwargs):
         super().__init__(NodeType.TYPE.value, name, line_number, **kwargs)
         self.underlying_type = ""
@@ -149,7 +150,7 @@ class Type(ASTNode):
 
 class Package(ASTNode):
     """Package/namespace node"""
-    
+
     def __init__(self, name: str, line_number: int, **kwargs):
         super().__init__(NodeType.PACKAGE.value, name, line_number, **kwargs)
         self.package_path = ""
@@ -159,7 +160,7 @@ class Package(ASTNode):
 
 class Comment(ASTNode):
     """Comment node"""
-    
+
     def __init__(self, content: str, line_number: int, **kwargs):
         super().__init__(NodeType.COMMENT.value, content, line_number, **kwargs)
         self.comment_type = "line"
@@ -169,43 +170,43 @@ class Comment(ASTNode):
 # Language-specific metadata keys
 class MetadataKeys:
     """Common metadata keys for different languages"""
-    
+
     # Universal
     LANGUAGE = "language"
     EXPORTED = "exported"
     ASYNC = "async"
-    
+
     # Python
     DECORATORS = "decorators"
     TYPE_HINTS = "type_hints"
-    
+
     # JavaScript/TypeScript
     EXPORT_TYPE = "export_type"
     JSX = "jsx"
-    
+
     # Go
     RECEIVER = "receiver"
     GOROUTINE = "goroutine"
     CHANNEL = "channel"
-    
+
     # Rust
     LIFETIMES = "lifetimes"
     TRAITS = "traits"
     MACROS = "macros"
     UNSAFE = "unsafe"
-    
+
     # Java
     ANNOTATIONS = "annotations"
     GENERICS = "generics"
-    
+
     # C++
     TEMPLATES = "templates"
     NAMESPACES = "namespaces"
-    
+
     # C#
     ATTRIBUTES = "attributes"
     LINQ = "linq"
-    
+
     # Dart
     MIXINS = "mixins"
     EXTENSIONS = "extensions"
@@ -215,45 +216,24 @@ class MetadataKeys:
 # Utility functions for creating nodes
 def create_function(name: str, line: int, **kwargs) -> Function:
     """Create a function node with default values"""
-    return Function(
-        name=name,
-        line_number=line,
-        **kwargs
-    )
+    return Function(name=name, line_number=line, **kwargs)
 
 
 def create_class(name: str, line: int, **kwargs) -> Class:
     """Create a class node with default values"""
-    return Class(
-        name=name,
-        line_number=line,
-        **kwargs
-    )
+    return Class(name=name, line_number=line, **kwargs)
 
 
 def create_interface(name: str, line: int, **kwargs) -> Class:
     """Create an interface node with default values"""
-    return Class(
-        name=name,
-        line_number=line,
-        is_interface=True,
-        **kwargs
-    )
+    return Class(name=name, line_number=line, is_interface=True, **kwargs)
 
 
 def create_import(name: str, line: int, **kwargs) -> Import:
     """Create an import node with default values"""
-    return Import(
-        name=name,
-        line_number=line,
-        **kwargs
-    )
+    return Import(name=name, line_number=line, **kwargs)
 
 
 def create_variable(name: str, line: int, **kwargs) -> Variable:
     """Create a variable node with default values"""
-    return Variable(
-        name=name,
-        line_number=line,
-        **kwargs
-    )
+    return Variable(name=name, line_number=line, **kwargs)

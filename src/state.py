@@ -24,12 +24,14 @@ class ShellAgentState(TypedDict, total=False):
     active_agent: Optional[str]  # New: current agent name
     active_skills: List[str]  # New: active skill names
     next_step: Optional[str]  # New: next step to execute
-    
+
     # Enhanced analysis state for multi-file projects
     project_context: Optional[Dict[str, Any]]  # Project structure and metadata
     files_analyzed: List[str]  # Track which files have been analyzed
-    analysis_phase: Literal["discovery", "analysis", "synthesis", "complete"]  # Current analysis phase
-    
+    analysis_phase: Literal[
+        "discovery", "analysis", "synthesis", "complete"
+    ]  # Current analysis phase
+
     # AST-aware fields for intelligent code analysis
     ast_cache: Optional[Dict[str, Any]]  # Parsed ASTs by file
     dependency_graph: Optional[Dict[str, List[str]]]  # File dependencies

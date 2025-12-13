@@ -4,6 +4,7 @@ AST parsers for different programming languages.
 
 from .python_parser import PythonParser
 from .go_parser import GoParser
+
 try:
     from .rust_parser import RustParser
 except ImportError:
@@ -30,12 +31,12 @@ except ImportError:
     JavaScriptParser = None
 
 __all__ = [
-    'PythonParser', 
-    'GoParser', 
-    'RustParser', 
-    'CppParser', 
-    'CSharpParser', 
-    'DartParser', 
-    'JavaParser', 
-    'JavaScriptParser'
+    "PythonParser",
+    "GoParser",
+    "RustParser",
+    "CppParser",
+    "CSharpParser",
+    "DartParser",
+    "JavaParser",
+    "JavaScriptParser",
 ]

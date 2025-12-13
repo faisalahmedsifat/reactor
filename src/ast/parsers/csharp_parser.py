@@ -8,38 +8,51 @@ import time
 import json
 from typing import Dict, List, Any, Optional
 
-from ..core.base_parser import BaseParser, ASTResult, Language, Parameter, Property, Method, Function, Class, Import, Variable
+from ..core.base_parser import (
+    BaseParser,
+    ASTResult,
+    Language,
+    Parameter,
+    Property,
+    Method,
+    Function,
+    Class,
+    Import,
+    Variable,
+)
 
 
 class CSharpParser(BaseParser):
     """C# language parser using Roslyn APIs."""
-    
+
     def __init__(self):
         super().__init__()
         self.language = Language.CSHARP
-        
+
     def get_supported_extensions(self) -> List[str]:
         """Return list of supported file extensions."""
-        return ['.cs']
-        
+        return [".cs"]
+
     async def parse_file(self, file_path: str, content: str) -> ASTResult:
         """Parse C# file and extract AST information."""
         start_time = time.time()
-        
+
         try:
             # Use Roslyn via a temporary C# program
             ast_data = await asyncio.get_event_loop().run_in_executor(
                 None, self._extract_csharp_ast, file_path, content
             )
-            
+
             # Convert to ASTResult
             functions = self._convert_functions(ast_data.get("methods", []))
             classes = self._convert_classes(ast_data.get("classes", []))
-            imports = self._convert_using_directives(ast_data.get("using_directives", []))
+            imports = self._convert_using_directives(
+                ast_data.get("using_directives", [])
+            )
             variables = self._convert_variables(ast_data.get("fields", []))
-            
+
             parse_time = int((time.time() - start_time) * 1000)
-            
+
             return ASTResult(
                 success=True,
                 language=self.language,
@@ -58,43 +71,45 @@ class CSharpParser(BaseParser):
                     "records": ast_data.get("records", []),
                     "attributes": ast_data.get("attributes", []),
                     "linq_expressions": ast_data.get("linq_expressions", []),
-                    "async_methods": ast_data.get("async_methods", [])
+                    "async_methods": ast_data.get("async_methods", []),
                 },
-                parse_time_ms=parse_time
+                parse_time_ms=parse_time,
             )
-            
+
         except Exception as e:
             parse_time = int((time.time() - start_time) * 1000)
             return ASTResult(
                 success=False,
                 language=self.language,
                 error=str(e),
-                parse_time_ms=parse_time
+                parse_time_ms=parse_time,
             )
-    
+
     async def parse_batch(self, file_paths: List[str]) -> List[ASTResult]:
         """Parse multiple files in parallel."""
         tasks = []
         for file_path in file_paths:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     content = f.read()
                 tasks.append(self.parse_file(file_path, content))
             except Exception as e:
+
                 async def error_result():
                     return ASTResult(
                         success=False,
                         language=self.language,
-                        error=f"Cannot read file: {str(e)}"
+                        error=f"Cannot read file: {str(e)}",
                     )
+
                 tasks.append(error_result())
-        
+
         return await asyncio.gather(*tasks)
-    
+
     def _extract_csharp_ast(self, file_path: str, content: str) -> Dict[str, Any]:
         """Extract AST information using Roslyn."""
         # Create a temporary C# program to parse the file
-        csharp_parser_code = '''
+        csharp_parser_code = """
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -582,10 +597,10 @@ public class CSharpAstParser
         return string.Join(", ", typeParameterList.Parameters.Select(p => p.ToString()));
     }
 }
-'''
-        
+"""
+
         # Create project file
-        csproj_content = '''
+        csproj_content = """
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -599,134 +614,146 @@ public class CSharpAstParser
   </ItemGroup>
 
 </Project>
-'''
-        
+"""
+
         # Create temporary directory for C# project
         with tempfile.TemporaryDirectory() as temp_dir:
             # Write .csproj file
-            with open(os.path.join(temp_dir, 'CSharpAstParser.csproj'), 'w') as f:
+            with open(os.path.join(temp_dir, "CSharpAstParser.csproj"), "w") as f:
                 f.write(csproj_content)
-            
+
             # Write Program.cs
-            with open(os.path.join(temp_dir, 'Program.cs'), 'w') as f:
+            with open(os.path.join(temp_dir, "Program.cs"), "w") as f:
                 f.write(csharp_parser_code)
-            
+
             # Write target C# file
-            target_file = os.path.join(temp_dir, 'target.cs')
-            with open(target_file, 'w') as f:
+            target_file = os.path.join(temp_dir, "target.cs")
+            with open(target_file, "w") as f:
                 f.write(content)
-            
+
             try:
                 # Build and run C# parser
                 subprocess.run(
-                    ['dotnet', 'build', '-c', 'Release'],
+                    ["dotnet", "build", "-c", "Release"],
                     cwd=temp_dir,
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
-                
+
                 result = subprocess.run(
-                    ['dotnet', 'run', '-c', 'Release', '--', target_file],
+                    ["dotnet", "run", "-c", "Release", "--", target_file],
                     cwd=temp_dir,
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
-                
+
                 if result.returncode == 0:
                     return json.loads(result.stdout)
                 else:
                     # Fallback to simpler parsing if Roslyn fails
                     return self._fallback_parse(content)
-                    
+
             except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
                 # Fallback to simpler parsing
                 return self._fallback_parse(content)
-    
+
     def _fallback_parse(self, content: str) -> Dict[str, Any]:
         """Fallback parsing using regex patterns when Roslyn is not available."""
         import re
-        
+
         methods = []
         classes = []
         using_directives = []
         fields = []
         namespaces = []
-        
-        lines = content.split('\n')
-        
+
+        lines = content.split("\n")
+
         for i, line in enumerate(lines, 1):
             line = line.strip()
-            
+
             # Simple method detection
-            method_match = re.match(r'(?:public|private|protected|internal)?\s*(?:static|virtual|override|abstract)?\s*(?:async)?\s*(\w+(?:<[^>]+>)?)\s+(\w+)\s*\([^)]*\)', line)
-            if method_match and not line.startswith('//') and not line.startswith('/*'):
+            method_match = re.match(
+                r"(?:public|private|protected|internal)?\s*(?:static|virtual|override|abstract)?\s*(?:async)?\s*(\w+(?:<[^>]+>)?)\s+(\w+)\s*\([^)]*\)",
+                line,
+            )
+            if method_match and not line.startswith("//") and not line.startswith("/*"):
                 return_type = method_match.group(1)
                 method_name = method_match.group(2)
-                
-                methods.append({
-                    "name": method_name,
-                    "return_type": return_type,
-                    "line": i,
-                    "is_public": "public" in line,
-                    "is_private": "private" in line,
-                    "is_protected": "protected" in line,
-                    "is_internal": "internal" in line,
-                    "is_static": "static" in line,
-                    "is_virtual": "virtual" in line,
-                    "is_override": "override" in line,
-                    "is_abstract": "abstract" in line,
-                    "is_async": "async" in line,
-                    "is_extension": False,
-                    "parameters": [],
-                    "attributes": [],
-                    "documentation": "",
-                    "generic_parameters": ""
-                })
-            
+
+                methods.append(
+                    {
+                        "name": method_name,
+                        "return_type": return_type,
+                        "line": i,
+                        "is_public": "public" in line,
+                        "is_private": "private" in line,
+                        "is_protected": "protected" in line,
+                        "is_internal": "internal" in line,
+                        "is_static": "static" in line,
+                        "is_virtual": "virtual" in line,
+                        "is_override": "override" in line,
+                        "is_abstract": "abstract" in line,
+                        "is_async": "async" in line,
+                        "is_extension": False,
+                        "parameters": [],
+                        "attributes": [],
+                        "documentation": "",
+                        "generic_parameters": "",
+                    }
+                )
+
             # Simple class detection
-            class_match = re.match(r'(?:public|private|protected|internal)?\s*(?:static|abstract|sealed)?\s*(?:partial)?\s*(?:record)?\s*class\s+(\w+)', line)
+            class_match = re.match(
+                r"(?:public|private|protected|internal)?\s*(?:static|abstract|sealed)?\s*(?:partial)?\s*(?:record)?\s*class\s+(\w+)",
+                line,
+            )
             if class_match:
                 class_name = class_match.group(1)
-                classes.append({
-                    "name": class_name,
-                    "base_types": [],
-                    "methods": [],
-                    "properties": [],
-                    "fields": [],
-                    "line": i,
-                    "is_public": "public" in line,
-                    "is_internal": "internal" in line,
-                    "is_abstract": "abstract" in line,
-                    "is_sealed": "sealed" in line,
-                    "is_static": "static" in line,
-                    "is_partial": "partial" in line,
-                    "is_record": "record" in line,
-                    "attributes": [],
-                    "documentation": "",
-                    "generic_parameters": "",
-                    "namespace": ""
-                })
-            
+                classes.append(
+                    {
+                        "name": class_name,
+                        "base_types": [],
+                        "methods": [],
+                        "properties": [],
+                        "fields": [],
+                        "line": i,
+                        "is_public": "public" in line,
+                        "is_internal": "internal" in line,
+                        "is_abstract": "abstract" in line,
+                        "is_sealed": "sealed" in line,
+                        "is_static": "static" in line,
+                        "is_partial": "partial" in line,
+                        "is_record": "record" in line,
+                        "attributes": [],
+                        "documentation": "",
+                        "generic_parameters": "",
+                        "namespace": "",
+                    }
+                )
+
             # Simple using directive detection
-            using_match = re.match(r'using\s+(?:static\s+)?([^;]+)', line)
+            using_match = re.match(r"using\s+(?:static\s+)?([^;]+)", line)
             if using_match:
                 using_name = using_match.group(1).strip()
-                using_directives.append({
-                    "name": using_name,
-                    "alias": "",
-                    "is_static": "static" in line,
-                    "is_global": "global" in line,
-                    "line": i
-                })
-            
+                using_directives.append(
+                    {
+                        "name": using_name,
+                        "alias": "",
+                        "is_static": "static" in line,
+                        "is_global": "global" in line,
+                        "line": i,
+                    }
+                )
+
             # Simple namespace detection
-            namespace_match = re.match(r'namespace\s+([^\\s{]+)', line)
+            namespace_match = re.match(r"namespace\s+([^\\s{]+)", line)
             if namespace_match:
                 namespace_name = namespace_match.group(1)
                 namespaces.append(namespace_name)
-        
+
         return {
             "namespaces": namespaces,
             "classes": classes,
@@ -742,38 +769,42 @@ public class CSharpAstParser
             "records": [],
             "attributes": [],
             "linq_expressions": [],
-            "async_methods": []
+            "async_methods": [],
         }
-    
+
     def _convert_functions(self, methods_data: List[Dict]) -> List[Function]:
         """Convert method data to Function objects."""
         functions = []
         for method_data in methods_data:
             parameters = []
             for param_data in method_data.get("parameters", []):
-                parameters.append(Parameter(
-                    name=param_data["name"],
-                    type_hint=param_data["type"],
-                    default_value=param_data.get("default_value", ""),
-                    is_optional=param_data.get("has_default_value", False),
-                    docstring=None
-                ))
-            
-            functions.append(Function(
-                name=method_data["name"],
-                parameters=parameters,
-                return_type=method_data["return_type"],
-                decorators=method_data.get("attributes", []),
-                docstring=method_data.get("documentation", ""),
-                line_number=method_data["line"],
-                complexity_score=1,
-                is_async=method_data.get("is_async", False),
-                is_method=True,
-                class_name=None
-            ))
-        
+                parameters.append(
+                    Parameter(
+                        name=param_data["name"],
+                        type_hint=param_data["type"],
+                        default_value=param_data.get("default_value", ""),
+                        is_optional=param_data.get("has_default_value", False),
+                        docstring=None,
+                    )
+                )
+
+            functions.append(
+                Function(
+                    name=method_data["name"],
+                    parameters=parameters,
+                    return_type=method_data["return_type"],
+                    decorators=method_data.get("attributes", []),
+                    docstring=method_data.get("documentation", ""),
+                    line_number=method_data["line"],
+                    complexity_score=1,
+                    is_async=method_data.get("is_async", False),
+                    is_method=True,
+                    class_name=None,
+                )
+            )
+
         return functions
-    
+
     def _convert_classes(self, classes_data: List[Dict]) -> List[Class]:
         """Convert class data to Class objects."""
         classes = []
@@ -782,83 +813,95 @@ public class CSharpAstParser
             for method_data in class_data.get("methods", []):
                 parameters = []
                 for param_data in method_data.get("parameters", []):
-                    parameters.append(Parameter(
-                        name=param_data["name"],
-                        type_hint=param_data["type"],
-                        default_value=param_data.get("default_value", ""),
-                        is_optional=param_data.get("has_default_value", False),
-                        docstring=None
-                    ))
-                
-                methods.append(Method(
-                    name=method_data["name"],
-                    parameters=parameters,
-                    return_type=method_data["return_type"],
-                    decorators=method_data.get("attributes", []),
-                    docstring=method_data.get("documentation", ""),
-                    line_number=method_data["line"],
-                    access_level=self._get_access_level(method_data),
-                    is_static=method_data.get("is_static", False),
-                    is_async=method_data.get("is_async", False)
-                ))
-            
+                    parameters.append(
+                        Parameter(
+                            name=param_data["name"],
+                            type_hint=param_data["type"],
+                            default_value=param_data.get("default_value", ""),
+                            is_optional=param_data.get("has_default_value", False),
+                            docstring=None,
+                        )
+                    )
+
+                methods.append(
+                    Method(
+                        name=method_data["name"],
+                        parameters=parameters,
+                        return_type=method_data["return_type"],
+                        decorators=method_data.get("attributes", []),
+                        docstring=method_data.get("documentation", ""),
+                        line_number=method_data["line"],
+                        access_level=self._get_access_level(method_data),
+                        is_static=method_data.get("is_static", False),
+                        is_async=method_data.get("is_async", False),
+                    )
+                )
+
             properties = []
             for prop_data in class_data.get("properties", []):
-                properties.append(Property(
-                    name=prop_data["name"],
-                    type_hint=prop_data["type"],
-                    line_number=prop_data["line"],
-                    default_value=None,
-                    access_level=self._get_access_level(prop_data),
-                    docstring=prop_data.get("documentation", ""),
-                    is_property=True
-                ))
-            
-            classes.append(Class(
-                name=class_data["name"],
-                base_classes=class_data.get("base_types", []),
-                methods=methods,
-                properties=properties,
-                decorators=class_data.get("attributes", []),
-                docstring=class_data.get("documentation", ""),
-                line_number=class_data["line"],
-                is_abstract=class_data.get("is_abstract", False),
-                access_level=self._get_access_level(class_data)
-            ))
-        
+                properties.append(
+                    Property(
+                        name=prop_data["name"],
+                        type_hint=prop_data["type"],
+                        line_number=prop_data["line"],
+                        default_value=None,
+                        access_level=self._get_access_level(prop_data),
+                        docstring=prop_data.get("documentation", ""),
+                        is_property=True,
+                    )
+                )
+
+            classes.append(
+                Class(
+                    name=class_data["name"],
+                    base_classes=class_data.get("base_types", []),
+                    methods=methods,
+                    properties=properties,
+                    decorators=class_data.get("attributes", []),
+                    docstring=class_data.get("documentation", ""),
+                    line_number=class_data["line"],
+                    is_abstract=class_data.get("is_abstract", False),
+                    access_level=self._get_access_level(class_data),
+                )
+            )
+
         return classes
-    
+
     def _convert_using_directives(self, using_data: List[Dict]) -> List[Import]:
         """Convert using directive data to Import objects."""
         imports = []
         for using_info in using_data:
-            imports.append(Import(
-                module=using_info["name"],
-                name="",
-                alias=using_info.get("alias", ""),
-                line_number=using_info["line"],
-                import_type="using",
-                is_relative=False,
-                is_standard_library=self._is_standard_library(using_info["name"])
-            ))
-        
+            imports.append(
+                Import(
+                    module=using_info["name"],
+                    name="",
+                    alias=using_info.get("alias", ""),
+                    line_number=using_info["line"],
+                    import_type="using",
+                    is_relative=False,
+                    is_standard_library=self._is_standard_library(using_info["name"]),
+                )
+            )
+
         return imports
-    
+
     def _convert_variables(self, fields_data: List[Dict]) -> List[Variable]:
         """Convert field data to Variable objects."""
         variables = []
         for field_data in fields_data:
-            variables.append(Variable(
-                name=field_data["name"],
-                type_hint=field_data["type"],
-                default_value=field_data.get("default_value", ""),
-                line_number=field_data["line"],
-                is_global=False,  # Fields are class members
-                is_constant=field_data.get("is_const", False)
-            ))
-        
+            variables.append(
+                Variable(
+                    name=field_data["name"],
+                    type_hint=field_data["type"],
+                    default_value=field_data.get("default_value", ""),
+                    line_number=field_data["line"],
+                    is_global=False,  # Fields are class members
+                    is_constant=field_data.get("is_const", False),
+                )
+            )
+
         return variables
-    
+
     def _get_access_level(self, member_data: Dict) -> str:
         """Determine access level from member data."""
         if member_data.get("is_public", False):
@@ -871,37 +914,54 @@ public class CSharpAstParser
             return "internal"
         else:
             return "public"  # Default
-    
+
     def _is_standard_library(self, import_name: str) -> bool:
         """Check if import is from .NET standard library."""
         std_namespaces = {
-            "System", "Microsoft", "Newtonsoft", "Linq", "Collections",
-            "Generic", "IO", "Text", "Threading", "Tasks", "Net",
-            "Web", "Http", "Json", "Xml", "Data", "Drawing",
-            "Windows", "Forms", "WPF", "Console"
+            "System",
+            "Microsoft",
+            "Newtonsoft",
+            "Linq",
+            "Collections",
+            "Generic",
+            "IO",
+            "Text",
+            "Threading",
+            "Tasks",
+            "Net",
+            "Web",
+            "Http",
+            "Json",
+            "Xml",
+            "Data",
+            "Drawing",
+            "Windows",
+            "Forms",
+            "WPF",
+            "Console",
         }
-        
-        parts = import_name.split('.')
+
+        parts = import_name.split(".")
         return parts[0] in std_namespaces
-    
+
     def extract_functions(self, ast_root: Any) -> List[Function]:
         """Extract function definitions from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.functions or []
         return []
-    
+
     def extract_classes(self, ast_root: Any) -> List[Class]:
         """Extract class definitions from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.classes or []
         return []
-    
+
     def extract_imports(self, ast_root: Any) -> List[Import]:
         """Extract import statements from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.imports or []
         return []
-    
+
     def extract_variables(self, ast_root: Any) -> List[Variable]:
         """Extract variable definitions from AST."""
         if isinstance(ast_root, ASTResult):

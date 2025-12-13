@@ -8,38 +8,49 @@ import time
 import json
 from typing import Dict, List, Any, Optional
 
-from ..core.base_parser import BaseParser, ASTResult, Language, Parameter, Property, Method, Function, Class, Import, Variable
+from ..core.base_parser import (
+    BaseParser,
+    ASTResult,
+    Language,
+    Parameter,
+    Property,
+    Method,
+    Function,
+    Class,
+    Import,
+    Variable,
+)
 
 
 class DartParser(BaseParser):
     """Dart language parser using analyzer."""
-    
+
     def __init__(self):
         super().__init__()
         self.language = Language.DART
-        
+
     def get_supported_extensions(self) -> List[str]:
         """Return list of supported file extensions."""
-        return ['.dart']
-        
+        return [".dart"]
+
     async def parse_file(self, file_path: str, content: str) -> ASTResult:
         """Parse Dart file and extract AST information."""
         start_time = time.time()
-        
+
         try:
             # Use analyzer via a temporary Dart program
             ast_data = await asyncio.get_event_loop().run_in_executor(
                 None, self._extract_dart_ast, file_path, content
             )
-            
+
             # Convert to ASTResult
             functions = self._convert_functions(ast_data.get("functions", []))
             classes = self._convert_classes(ast_data.get("classes", []))
             imports = self._convert_imports(ast_data.get("imports", []))
             variables = self._convert_variables(ast_data.get("variables", []))
-            
+
             parse_time = int((time.time() - start_time) * 1000)
-            
+
             return ASTResult(
                 success=True,
                 language=self.language,
@@ -58,43 +69,45 @@ class DartParser(BaseParser):
                     "null_safety": ast_data.get("null_safety", False),
                     "async_functions": ast_data.get("async_functions", []),
                     "generators": ast_data.get("generators", []),
-                    "widgets": ast_data.get("widgets", [])
+                    "widgets": ast_data.get("widgets", []),
                 },
-                parse_time_ms=parse_time
+                parse_time_ms=parse_time,
             )
-            
+
         except Exception as e:
             parse_time = int((time.time() - start_time) * 1000)
             return ASTResult(
                 success=False,
                 language=self.language,
                 error=str(e),
-                parse_time_ms=parse_time
+                parse_time_ms=parse_time,
             )
-    
+
     async def parse_batch(self, file_paths: List[str]) -> List[ASTResult]:
         """Parse multiple files in parallel."""
         tasks = []
         for file_path in file_paths:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     content = f.read()
                 tasks.append(self.parse_file(file_path, content))
             except Exception as e:
+
                 async def error_result():
                     return ASTResult(
                         success=False,
                         language=self.language,
-                        error=f"Cannot read file: {str(e)}"
+                        error=f"Cannot read file: {str(e)}",
                     )
+
                 tasks.append(error_result())
-        
+
         return await asyncio.gather(*tasks)
-    
+
     def _extract_dart_ast(self, file_path: str, content: str) -> Dict[str, Any]:
         """Extract AST information using Dart analyzer."""
         # Create a temporary Dart program to parse the file
-        dart_parser_code = '''
+        dart_parser_code = """
 import 'dart:io';
 import 'dart:convert';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
@@ -496,10 +509,10 @@ class DartAstExtractor extends RecursiveAstVisitor<void> {
            implements.any((i) => i.contains('Widget'));
   }
 }
-'''
-        
+"""
+
         # Create pubspec.yaml
-        pubspec_content = '''
+        pubspec_content = """
 name: dart_ast_parser
 description: A Dart AST parser for extracting code structure
 version: 1.0.0
@@ -512,133 +525,143 @@ dependencies:
 
 dev_dependencies:
   lints: ^3.0.0
-'''
-        
+"""
+
         # Create temporary directory for Dart project
         with tempfile.TemporaryDirectory() as temp_dir:
             # Write pubspec.yaml
-            with open(os.path.join(temp_dir, 'pubspec.yaml'), 'w') as f:
+            with open(os.path.join(temp_dir, "pubspec.yaml"), "w") as f:
                 f.write(pubspec_content)
-            
+
             # Write parser.dart
-            with open(os.path.join(temp_dir, 'bin', 'parser.dart'), 'w') as f:
+            with open(os.path.join(temp_dir, "bin", "parser.dart"), "w") as f:
                 f.write(dart_parser_code)
-            
+
             # Write target Dart file
-            target_file = os.path.join(temp_dir, 'target.dart')
-            with open(target_file, 'w') as f:
+            target_file = os.path.join(temp_dir, "target.dart")
+            with open(target_file, "w") as f:
                 f.write(content)
-            
+
             try:
                 # Get dependencies
                 subprocess.run(
-                    ['dart', 'pub', 'get'],
+                    ["dart", "pub", "get"],
                     cwd=temp_dir,
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
-                
+
                 # Run Dart parser
                 result = subprocess.run(
-                    ['dart', 'run', 'bin/parser.dart', target_file],
+                    ["dart", "run", "bin/parser.dart", target_file],
                     cwd=temp_dir,
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
-                
+
                 if result.returncode == 0:
                     return json.loads(result.stdout)
                 else:
                     # Fallback to simpler parsing if analyzer fails
                     return self._fallback_parse(content)
-                    
+
             except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
                 # Fallback to simpler parsing
                 return self._fallback_parse(content)
-    
+
     def _fallback_parse(self, content: str) -> Dict[str, Any]:
         """Fallback parsing using regex patterns when analyzer is not available."""
         import re
-        
+
         functions = []
         classes = []
         imports = []
         variables = []
-        
-        lines = content.split('\n')
-        
+
+        lines = content.split("\n")
+
         for i, line in enumerate(lines, 1):
             line = line.strip()
-            
+
             # Simple function detection
-            func_match = re.match(r'(?:\w+\s+)?(\w+)\s*\([^)]*\)\s*(?:async\s*)?(?:\{|=>)', line)
-            if func_match and not line.startswith('//') and not line.startswith('/*'):
+            func_match = re.match(
+                r"(?:\w+\s+)?(\w+)\s*\([^)]*\)\s*(?:async\s*)?(?:\{|=>)", line
+            )
+            if func_match and not line.startswith("//") and not line.startswith("/*"):
                 func_name = func_match.group(1)
-                if func_name not in ['if', 'while', 'for', 'switch', 'catch']:
-                    functions.append({
-                        "name": func_name,
-                        "return_type": "dynamic",  # Would need more complex parsing
-                        "line": i,
-                        "is_exported": not func_name.startswith('_'),
-                        "is_async": "async" in line,
-                        "is_generator": "sync*" in line or "async*" in line,
-                        "is_getter": "get " in line,
-                        "is_setter": "set " in line,
-                        "parameters": [],
-                        "documentation": "",
-                        "attributes": []
-                    })
-            
+                if func_name not in ["if", "while", "for", "switch", "catch"]:
+                    functions.append(
+                        {
+                            "name": func_name,
+                            "return_type": "dynamic",  # Would need more complex parsing
+                            "line": i,
+                            "is_exported": not func_name.startswith("_"),
+                            "is_async": "async" in line,
+                            "is_generator": "sync*" in line or "async*" in line,
+                            "is_getter": "get " in line,
+                            "is_setter": "set " in line,
+                            "parameters": [],
+                            "documentation": "",
+                            "attributes": [],
+                        }
+                    )
+
             # Simple class detection
-            class_match = re.match(r'(?:abstract\s+)?class\s+(\w+)', line)
+            class_match = re.match(r"(?:abstract\s+)?class\s+(\w+)", line)
             if class_match:
                 class_name = class_match.group(1)
-                classes.append({
-                    "name": class_name,
-                    "line": i,
-                    "is_exported": not class_name.startswith('_'),
-                    "is_abstract": "abstract" in line,
-                    "extends": "",
-                    "implements": [],
-                    "with": [],
-                    "methods": [],
-                    "properties": [],
-                    "documentation": "",
-                    "attributes": []
-                })
-            
+                classes.append(
+                    {
+                        "name": class_name,
+                        "line": i,
+                        "is_exported": not class_name.startswith("_"),
+                        "is_abstract": "abstract" in line,
+                        "extends": "",
+                        "implements": [],
+                        "with": [],
+                        "methods": [],
+                        "properties": [],
+                        "documentation": "",
+                        "attributes": [],
+                    }
+                )
+
             # Simple import detection
             import_match = re.match(r'import\s+[\'"]([^\'"]+)[\'"]', line)
             if import_match:
                 import_uri = import_match.group(1)
-                imports.append({
-                    "uri": import_uri,
-                    "prefix": "",
-                    "show_combinators": [],
-                    "hide_combinators": [],
-                    "line": i,
-                    "is_deferred": "deferred" in line
-                })
-            
+                imports.append(
+                    {
+                        "uri": import_uri,
+                        "prefix": "",
+                        "show_combinators": [],
+                        "hide_combinators": [],
+                        "line": i,
+                        "is_deferred": "deferred" in line,
+                    }
+                )
+
             # Simple variable detection
-            var_match = re.match(r'(?:final|const|var|late)?\s*(\w+)\s+(\w+)', line)
+            var_match = re.match(r"(?:final|const|var|late)?\s*(\w+)\s+(\w+)", line)
             if var_match:
                 var_type = var_match.group(1)
                 var_name = var_match.group(2)
-                variables.append({
-                    "name": var_name,
-                    "type": var_type,
-                    "line": i,
-                    "is_final": "final" in line,
-                    "is_const": "const" in line,
-                    "is_late": "late" in line,
-                    "value": "",
-                    "documentation": "",
-                    "attributes": []
-                })
-        
+                variables.append(
+                    {
+                        "name": var_name,
+                        "type": var_type,
+                        "line": i,
+                        "is_final": "final" in line,
+                        "is_const": "const" in line,
+                        "is_late": "late" in line,
+                        "value": "",
+                        "documentation": "",
+                        "attributes": [],
+                    }
+                )
+
         return {
             "functions": functions,
             "classes": classes,
@@ -654,38 +677,42 @@ dev_dependencies:
             "null_safety": False,
             "async_functions": [],
             "generators": [],
-            "widgets": []
+            "widgets": [],
         }
-    
+
     def _convert_functions(self, functions_data: List[Dict]) -> List[Function]:
         """Convert function data to Function objects."""
         functions = []
         for func_data in functions_data:
             parameters = []
             for param_data in func_data.get("parameters", []):
-                parameters.append(Parameter(
-                    name=param_data["name"],
-                    type_hint=param_data["type"],
-                    default_value=param_data.get("default_value", ""),
-                    is_optional=param_data.get("is_optional", False),
-                    docstring=None
-                ))
-            
-            functions.append(Function(
-                name=func_data["name"],
-                parameters=parameters,
-                return_type=func_data["return_type"],
-                decorators=func_data.get("attributes", []),
-                docstring=func_data.get("documentation", ""),
-                line_number=func_data["line"],
-                complexity_score=1,
-                is_async=func_data.get("is_async", False),
-                is_method=False,
-                class_name=None
-            ))
-        
+                parameters.append(
+                    Parameter(
+                        name=param_data["name"],
+                        type_hint=param_data["type"],
+                        default_value=param_data.get("default_value", ""),
+                        is_optional=param_data.get("is_optional", False),
+                        docstring=None,
+                    )
+                )
+
+            functions.append(
+                Function(
+                    name=func_data["name"],
+                    parameters=parameters,
+                    return_type=func_data["return_type"],
+                    decorators=func_data.get("attributes", []),
+                    docstring=func_data.get("documentation", ""),
+                    line_number=func_data["line"],
+                    complexity_score=1,
+                    is_async=func_data.get("is_async", False),
+                    is_method=False,
+                    class_name=None,
+                )
+            )
+
         return functions
-    
+
     def _convert_classes(self, classes_data: List[Dict]) -> List[Class]:
         """Convert class data to Class objects."""
         classes = []
@@ -694,111 +721,145 @@ dev_dependencies:
             for method_data in class_data.get("methods", []):
                 parameters = []
                 for param_data in method_data.get("parameters", []):
-                    parameters.append(Parameter(
-                        name=param_data["name"],
-                        type_hint=param_data["type"],
-                        default_value=param_data.get("default_value", ""),
-                        is_optional=param_data.get("is_optional", False),
-                        docstring=None
-                    ))
-                
-                methods.append(Method(
-                    name=method_data["name"],
-                    parameters=parameters,
-                    return_type=method_data["return_type"],
-                    decorators=method_data.get("attributes", []),
-                    docstring=method_data.get("documentation", ""),
-                    line_number=method_data["line"],
-                    access_level="public" if method_data.get("is_exported", True) else "private",
-                    is_static=method_data.get("is_static", False),
-                    is_async=method_data.get("is_async", False)
-                ))
-            
+                    parameters.append(
+                        Parameter(
+                            name=param_data["name"],
+                            type_hint=param_data["type"],
+                            default_value=param_data.get("default_value", ""),
+                            is_optional=param_data.get("is_optional", False),
+                            docstring=None,
+                        )
+                    )
+
+                methods.append(
+                    Method(
+                        name=method_data["name"],
+                        parameters=parameters,
+                        return_type=method_data["return_type"],
+                        decorators=method_data.get("attributes", []),
+                        docstring=method_data.get("documentation", ""),
+                        line_number=method_data["line"],
+                        access_level=(
+                            "public"
+                            if method_data.get("is_exported", True)
+                            else "private"
+                        ),
+                        is_static=method_data.get("is_static", False),
+                        is_async=method_data.get("is_async", False),
+                    )
+                )
+
             properties = []
             for prop_data in class_data.get("properties", []):
-                properties.append(Property(
-                    name=prop_data["name"],
-                    type_hint=prop_data["type"],
-                    line_number=prop_data["line"],
-                    default_value=None,
-                    access_level="public" if prop_data.get("is_exported", True) else "private",
-                    docstring=prop_data.get("documentation", ""),
-                    is_property=True
-                ))
-            
-            classes.append(Class(
-                name=class_data["name"],
-                base_classes=[class_data.get("extends", "")] if class_data.get("extends") else [],
-                methods=methods,
-                properties=properties,
-                decorators=class_data.get("attributes", []),
-                docstring=class_data.get("documentation", ""),
-                line_number=class_data["line"],
-                is_abstract=class_data.get("is_abstract", False),
-                access_level="public" if class_data.get("is_exported", True) else "private"
-            ))
-        
+                properties.append(
+                    Property(
+                        name=prop_data["name"],
+                        type_hint=prop_data["type"],
+                        line_number=prop_data["line"],
+                        default_value=None,
+                        access_level=(
+                            "public"
+                            if prop_data.get("is_exported", True)
+                            else "private"
+                        ),
+                        docstring=prop_data.get("documentation", ""),
+                        is_property=True,
+                    )
+                )
+
+            classes.append(
+                Class(
+                    name=class_data["name"],
+                    base_classes=(
+                        [class_data.get("extends", "")]
+                        if class_data.get("extends")
+                        else []
+                    ),
+                    methods=methods,
+                    properties=properties,
+                    decorators=class_data.get("attributes", []),
+                    docstring=class_data.get("documentation", ""),
+                    line_number=class_data["line"],
+                    is_abstract=class_data.get("is_abstract", False),
+                    access_level=(
+                        "public" if class_data.get("is_exported", True) else "private"
+                    ),
+                )
+            )
+
         return classes
-    
+
     def _convert_imports(self, imports_data: List[Dict]) -> List[Import]:
         """Convert import data to Import objects."""
         imports = []
         for import_data in imports_data:
-            imports.append(Import(
-                module=import_data["uri"],
-                name="",
-                alias=import_data.get("prefix", ""),
-                line_number=import_data["line"],
-                import_type="import",
-                is_relative=import_data["uri"].startswith('.'),
-                is_standard_library=self._is_standard_library(import_data["uri"])
-            ))
-        
+            imports.append(
+                Import(
+                    module=import_data["uri"],
+                    name="",
+                    alias=import_data.get("prefix", ""),
+                    line_number=import_data["line"],
+                    import_type="import",
+                    is_relative=import_data["uri"].startswith("."),
+                    is_standard_library=self._is_standard_library(import_data["uri"]),
+                )
+            )
+
         return imports
-    
+
     def _convert_variables(self, variables_data: List[Dict]) -> List[Variable]:
         """Convert variable data to Variable objects."""
         variables = []
         for var_data in variables_data:
-            variables.append(Variable(
-                name=var_data["name"],
-                type_hint=var_data["type"],
-                default_value=var_data.get("value", ""),
-                line_number=var_data["line"],
-                is_global=True,
-                is_constant=var_data.get("is_const", False)
-            ))
-        
+            variables.append(
+                Variable(
+                    name=var_data["name"],
+                    type_hint=var_data["type"],
+                    default_value=var_data.get("value", ""),
+                    line_number=var_data["line"],
+                    is_global=True,
+                    is_constant=var_data.get("is_const", False),
+                )
+            )
+
         return variables
-    
+
     def _is_standard_library(self, import_uri: str) -> bool:
         """Check if import is from Dart standard library."""
         std_libraries = {
-            "dart:", "dart:async", "dart:collection", "dart:convert",
-            "dart:core", "dart:io", "dart:isolate", "dart:math",
-            "dart:mirrors", "dart:typed_data", "dart:ffi"
+            "dart:",
+            "dart:async",
+            "dart:collection",
+            "dart:convert",
+            "dart:core",
+            "dart:io",
+            "dart:isolate",
+            "dart:math",
+            "dart:mirrors",
+            "dart:typed_data",
+            "dart:ffi",
         }
-        
+
         return any(import_uri.startswith(lib) for lib in std_libraries)
-    
+
     def extract_functions(self, ast_root: Any) -> List[Function]:
         """Extract function definitions from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.functions or []
         return []
-    
+
     def extract_classes(self, ast_root: Any) -> List[Class]:
         """Extract class definitions from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.classes or []
         return []
-    
+
     def extract_imports(self, ast_root: Any) -> List[Import]:
         """Extract import statements from AST."""
         if isinstance(ast_root, ASTResult):
             return ast_root.imports or []
         return []
-    
+
     def extract_variables(self, ast_root: Any) -> List[Variable]:
         """Extract variable definitions from AST."""
         if isinstance(ast_root, ASTResult):
