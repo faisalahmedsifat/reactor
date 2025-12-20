@@ -1135,8 +1135,16 @@ async def analyze_project_structure(directory: str = ".", max_depth: int = 3) ->
         return file_list_result
 
     # Convert internal result to expected format
-    files_by_extension = file_list_result.get("files_by_extension", {})
+    # Note: _list_project_files_internal returns counts for files_by_extension, not lists!
+    # We must reconstruct the lists from all_files.
     all_files = file_list_result.get("all_files", [])
+    files_by_extension = {}
+    
+    for f in all_files:
+        ext = Path(f).suffix
+        if ext not in files_by_extension:
+            files_by_extension[ext] = []
+        files_by_extension[ext].append(f)
 
     # Convert to categories format expected by analysis
     files_by_category = {

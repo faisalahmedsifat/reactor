@@ -65,6 +65,7 @@ class ShellAgentTUI(App):
         Binding("ctrl+p", "fuzzy_find", "Find File"),
         Binding("ctrl+shift+p", "command_palette", "Command Palette"),
         Binding("escape", "cancel_agent", "Cancel Agent"),
+        Binding("ctrl+alt+space", "toggle_log_viewer", "Toggle Logs"),
     ]
 
     # Global Reactive State
@@ -242,6 +243,14 @@ class ShellAgentTUI(App):
         log_viewer = self.query_one(AgentDashboard).query_one("#log-viewer")
         log_viewer.clear()
         log_viewer.add_log("Logs cleared.", "info")
+
+    def action_toggle_log_viewer(self) -> None:
+        """Toggle Log Viewer visibility"""
+        log_viewer = self.query_one(AgentDashboard).query_one("#log-viewer")
+        if log_viewer.has_class("-hidden"):
+            log_viewer.remove_class("-hidden")
+        else:
+            log_viewer.add_class("-hidden")
 
     def on_fuzzy_finder_selected(self, event: FuzzyFinder.Selected) -> None:
         """Handle file selection from fuzzy finder"""

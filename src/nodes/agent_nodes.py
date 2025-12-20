@@ -118,9 +118,38 @@ async def agent_node(state: ShellAgentState) -> Dict[str, Any]:
     recent_messages = messages[-10:] if messages else []
     context_messages.extend(recent_messages)
 
-    context_messages.append(
-        HumanMessage(content=f"Execute this instruction:\n\n{current_instruction}")
-    )
+    # 5. Invoke
+    # Fix for Gemini 400 Error: Ensure proper message structure.
+    # 1. Prune leading ToolMessages (Orphaned Results)
+    # 2. Prune trailing AIMessages with tool_calls (Hanging Calls)
+    # 3. Merge consecutive HumanMessages (User -> User violation)
+
+    from langchain_core.messages import ToolMessage, AIMessage
+
+    # 1. Prune leading ToolMessages
+    while recent_messages and isinstance(recent_messages[0], ToolMessage):
+        recent_messages.pop(0)
+
+    # 2. Prune trailing hanging Tool Calls
+    # If the last message is an AI message that wanted to call a tool, but we are appending a Human message,
+    # we break the Call->Result chain. We must remove the incomplete call.
+    while recent_messages and isinstance(recent_messages[-1], AIMessage) and getattr(recent_messages[-1], "tool_calls", None):
+        recent_messages.pop()
+
+    # Add sanitized history
+    context_messages.extend(recent_messages)
+
+    # 3. Merge User Messages or Append
+    if context_messages and isinstance(context_messages[-1], HumanMessage):
+        # Merge to avoid User -> User
+        last_human = context_messages.pop()
+        new_content = f"{last_human.content}\n\n--- INSTRUCTION ---\n{current_instruction}"
+        context_messages.append(HumanMessage(content=new_content))
+    else:
+        # Safe to append
+        context_messages.append(
+            HumanMessage(content=f"Execute this instruction:\n\n{current_instruction}")
+        )
 
     # 5. Invoke
     response = await llm_with_tools.ainvoke(context_messages)

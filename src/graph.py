@@ -184,6 +184,16 @@ def route_after_agent(state: ShellAgentState) -> Literal["tools", "thinking", "e
 
 # ============= EXECUTION HELPER =============
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.markdown import Markdown
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.text import Text
+import ast
+import json
+
+console = Console()
 
 async def run_agent(
     user_request: str,
@@ -218,43 +228,93 @@ async def run_agent(
         "configurable": {"thread_id": thread_id},
         "recursion_limit": 150,
     }
-    print(f"🚀 Starting agent for: {user_request}\n")
 
-    async for event in graph.astream(initial_state, config, stream_mode="updates"):
-        for node_name, node_output in event.items():
-            # Cleaner output for headless mode
-            if node_name == "thinking":
-                analysis = node_output.get("analysis_data", {}).get(
-                    "latest_analysis", "N/A"
-                )
-                next_step = node_output.get("next_step", "N/A")
-                if next_step and next_step not in ["[STOP_AGENT]", "[ERROR_RECOVERY]"]:
-                    print(f"🧠 {analysis[:100]}{'...' if len(analysis) > 100 else ''}")
+    # Setup sub-agent monitoring for headless mode
+    from src.agents.manager import AgentManager
 
-            elif "messages" in node_output and node_output["messages"]:
-                last_msg = node_output["messages"][-1]
-                # Simple check for tool calls - skip for now to focus on other fixes
-                # TODO: Fix tool_calls detection properly
-                if False:  # Temporarily disable tool_calls check
-                    tool_names = [tc["name"] for tc in last_msg.tool_calls]
-                    print(f"🔧 Executing: {', '.join(tool_names)}")
-                elif hasattr(last_msg, "content"):
-                    content = last_msg.content
-                    # Handle list content (common in multimodal or structured outputs)
-                    if isinstance(content, list):
-                        # Join text blocks or extract meaningful part
-                        content = " ".join(
-                            [
-                                str(c)
-                                for c in content
-                                if isinstance(c, str)
-                                or (isinstance(c, dict) and "text" in c)
-                            ]
-                        )
+    async def headless_agent_callback(agent_id, node_name, message):
+        """Callback to print sub-agent activity in headless mode"""
+        content = ""
+        if node_name:
+            console.print(f"[bold cyan]🤖 Sub-Agent {agent_id[:8]} ({node_name}):[/] {content.strip()}")
+        else:
+            console.print(f"[bold cyan]🤖 Sub-Agent {agent_id[:8]}:[/] {content.strip()}")
 
-                    if isinstance(content, str):
-                        content = content.strip()
-                        if content and not content.startswith("**Analysis:**"):
-                            print(f"💬 {content}")
+    manager = AgentManager()
+    manager.set_tui_callback(headless_agent_callback)
 
-    print("\n✅ Task completed")
+    console.print(f"[bold green]🚀 Starting ReACTOR Agent for:[/] {user_request}\n")
+
+    try:
+        async for event in graph.astream(initial_state, config, stream_mode="updates"):
+            for node_name, node_output in event.items():
+                if node_name == "thinking":
+                    analysis = node_output.get("analysis_data", {}).get(
+                        "latest_analysis", "N/A"
+                    )
+                    next_step = node_output.get("next_step", "N/A")
+                    
+                    console.print(f"[bold magenta]🧠 Brain:[/bold magenta] [italic]{analysis}[/italic]")
+                    if next_step:
+                        console.print(f"[bold magenta]👉 Next Step:[/bold magenta] {next_step}")
+                    print() # Spacer
+
+                elif "messages" in node_output and node_output["messages"]:
+                    last_msg = node_output["messages"][-1]
+                    
+                    # Tool Calls
+                    if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+                        for tc in last_msg.tool_calls:
+                            args_str = str(tc["args"])
+                            if len(args_str) > 100:
+                                args_str = args_str[:97] + "..."
+                            console.print(f"[bold yellow]🔧 Tool Call:[/] {tc['name']} {args_str}")
+                    
+                    # Tool Outputs (ToolMessage)
+                    elif hasattr(last_msg, "type") and last_msg.type == "tool":
+                        content = str(last_msg.content)
+                        display_content = content[:300] + "..." if len(content) > 300 else content
+                        console.print(f"[bold green]✅ Tool Output:[/] {display_content}")
+
+                    # Text Content (AIMessage)
+                    elif hasattr(last_msg, "content"):
+                        content = last_msg.content
+                        # Handle list content
+                        if isinstance(content, list):
+                            content = " ".join(
+                                [
+                                    str(c)
+                                    for c in content
+                                    if isinstance(c, str)
+                                    or (isinstance(c, dict) and "text" in c)
+                                ]
+                            )
+
+                        if isinstance(content, str):
+                            content = content.strip()
+                            
+                            # Clean up the specific dictionary-like string format
+                            # This handles the case where content is "{'type': 'text', 'text': '...'}"
+                            try:
+                                if content.startswith("{") and "text" in content:
+                                    import ast
+                                    # Use safe evaluation to parse the string to a dict
+                                    data = ast.literal_eval(content)
+                                    if isinstance(data, dict):
+                                        if "text" in data:
+                                            content = data["text"]
+                                        # Handle case where it might be nested or different key
+                                        elif "content" in data:
+                                            content = data["content"]
+                            except (ValueError, SyntaxError):
+                                # If it fails to parse (e.g. valid text starting with {), just use original
+                                pass
+
+                            if content and not content.startswith("**Analysis:**"):
+                                console.print("[bold blue]💬 Agent Response:[/]")
+                                console.print(Markdown(content))
+                                print() # Spacer
+    finally:
+        pass
+
+    console.print("\n[bold green]✅ Task Completed[/]")

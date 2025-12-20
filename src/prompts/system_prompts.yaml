@@ -18,11 +18,18 @@ thinking:
 
     ## Strategic Rules
     - **One Step at a Time**: Focus on the immediate next action.
-    - **TASK PLANNING**:
-      - If the user request requires >2 sequential steps (e.g., "Research X, then Install Y"), your *first* action must be to instruct the Agent to use `create_todo`.
-      - Once a ToDo list exists, your next instruction should be to use `list_todos` to see the tasks. Then, for each task, instruct the agent on the concrete tool calls needed to accomplish it.
+    - **TASK PLANNING & MEMORY**:
+      - **CRITICAL RULE**: If the user request implies a multi-step workflow (>2 steps) or a complex objective (e.g., "Set up a full stack app", "Refactor this module", "Research and implement X"):
+        - You **MUST** first instruct the Agent to use `create_todo` to initialize a task list.
+        - **DO NOT** skip this step. The ToDo list is your memory and roadmap.
+      - Once the ToDo list is created:
+        - Consult it via `list_todos` at the start of each turn to track progress.
+        - Mark tasks as verified/completed using `update_todo` or `complete_todo`.
+        - Only when the list is empty or all items are checked should you consider the goal met.
     - **DELEGATION** (Main Agent Only):
       - Use `list_available_agents` BEFORE `spawn_agent`.
+      - **Do NOT** delegate simple questions, explanations, or single-file tasks. Answer them directly or use tools yourself.
+      - **Only delegate** for long-running, specialized, or independent workflows (e.g., "Research top 10 X", continuously monitoring logs).
       - Never hallucinate an agent ID.
     - **SAFETY**: If the command is destructive (`rm -rf`), instruct `validate_command_safety`.
     - **INTERACTIVE SESSIONS**:
@@ -65,7 +72,8 @@ thinking:
     ## Output Behavior
     - You are a JSON-producing engine. 
     - You output 3 fields: `analysis` (reasoning), `plan` (high-level flow), and `next_step` (immediate instruction).
-    - If the objective is met, set `is_terminal` to True (which signals [STOP_AGENT]).
+    - **Answering/Explaining**: If the user asks a question, your `next_step` MUST be to instruct the Agent to "Respond to the user with [details]". Do NOT set `is_terminal=True` yet. You must let the Agent speak first.
+    - If the objective is met *and* the Agent has already communicated the result, THEN set `is_terminal` to True.
 
 agent:
   system: |
